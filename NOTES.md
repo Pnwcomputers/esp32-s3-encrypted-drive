@@ -1,108 +1,326 @@
-# ESP32-S3 Encrypted Hardware Vault: Project Blueprint
+# ESP32-S3 Encrypted Hardware Vault — Firmware & Display Specification
 
-## 1. Project Overview
-A stealthy, self-contained hardware vault that encrypts files on a microSD card. It unlocks via a temporary, air-gapped Wi-Fi Access Point (camouflaged as wireless earbuds) and a smartphone browser. Once unlocked, the radios are permanently disabled and files are transferred to a computer over a USB connection without exposing the vault's master encryption key to the host operating system.
+## Project Overview
+This project implements a hidden hardware vault on the **Waveshare ESP32-S3-LCD-1.47"** board (USB-A thumb drive form factor).
 
-## 2. Hardware Specifications
-*   **Microcontroller:** Waveshare ESP32-S3-LCD-1.47 (USB-A Thumb-Drive Form Factor, 16MB Flash).
-*   **Partitioning:** Custom partition table allocating 4MB for the main application to accommodate LVGL, Wi-Fi, and HTTP server stacks.
-*   **Display:** 1.47" ST7789 IPS LCD (SPI interface) for status readout.
-*   **Storage:** 64 GB microSD card (4-bit SDMMC interface).
-*   **Host Interface:** Native USB (USB CDC / TinyUSB v2.4.0).
-*   **Input Method:** Temporary Wi-Fi SoftAP + Lightweight HTTP Web Server (Smartphone UI).
+The device operates using a secure air-gap flow:
+1. **Boot / Pairing Mode:** Initializes the ST7789 display using LVGL 9, mounts the onboard MicroSD card, and boots a temporary Wi-Fi Access Point (`MyEarPods`) hosting a local HTTP server.
+2. **Authentication:** The user connects to `http://192.168.4.1` on their mobile device and submits the PIN (`pin=123456`).
+3. **Air-Gap Transition:** Once unlocked, the Wi-Fi stack and web server are permanently torn down, the display updates to **CONNECTED**, and TinyUSB CDC mode is activated over the USB interface.
 
-## 3. Security Architecture
-*   **Core Encryption:** AES-256-GCM authenticated encryption for all files and metadata.
-*   **Key Protection:** 
-    *   Device-specific secret stored in the ESP32-S3 eFuse (HMAC accelerator).
-    *   Randomly generated 256-bit vault master key.
-    *   The vault key is wrapped (encrypted) by a Key Encryption Key (KEK) derived from the eFuse secret, a random salt, and the user's PIN.
-*   **Active Camouflage:** The unlock interface masquerades as an audio device (`MyEarPods`) with a generic configuration web page, avoiding suspicion during public Wi-Fi scans.
-*   **Air-Gapped Radio Silence:** The Wi-Fi AP is only broadcast while the device is locked and disconnected from the host data interface. Immediately upon a successful PIN entry, the Wi-Fi and Bluetooth radios are **permanently disabled at the hardware level** for the duration of the session to eliminate remote attack surfaces.
-*   **Hardware Hardening:** 
-    *   Secure Boot V2 to prevent unauthorized firmware modifications.
-    *   Flash Encryption to protect the firmware and on-board storage.
-*   **Threat Mitigation:** 
-    *   *Stolen SD Card:* Files remain encrypted. Offline brute-forcing the PIN is impractical without the physical ESP32 eFuse secret.
-    *   *Stolen Device:* Firmware enforces persistent, increasing delays after failed PIN attempts (rate limiting) via NVS storage.
+---
 
-## 4. Software Architecture
-### Firmware (ESP-IDF v6.1, C/C++)
-*   **Web Server (HTTPD):** Serves the HTML/CSS PIN-pad interface locally at `192.168.4.1`.
-*   **UI/Display (LVGL):** Handles the ST7789 display to show connection status, lock state, and transfer progress.
-*   **Crypto Core:** Manages eFuse HMAC, key derivation, key wrapping, and AES-GCM chunk processing.
-*   **Storage Layer:** Handles FATFS, the encrypted file manifest, and crash-safe file writes.
-*   **USB Protocol:** TinyUSB CDC command-and-response protocol. Only initializes *after* the Wi-Fi radio is torn down.
+## Hardware Pinout & Display Specifications
 
-### Desktop Client (Python, PySide6)
-*   Cross-platform (Windows, macOS, Linux) file manager utility.
-*   Communicates with the ESP32 via serial USB CDC (`pyserial`).
-*   Provides a conventional GUI (list, upload, download, delete) without ever receiving the master encryption key.
+### Waveshare ESP32-S3-LCD-1.47 Pin Mapping
+| Interface | Signal | GPIO Pin | Notes |
+| :--- | :--- | :--- | :--- |
+| **ST7789 LCD** | MOSI | GPIO 45 | High-speed SPI Data Line |
+| | SCLK | GPIO 40 | SPI Clock (20MHz) |
+| | CS | GPIO 42 | Chip Select |
+| | DC | GPIO 41 | Data/Command Select |
+| | RST | GPIO 39 | Panel Hardware Reset |
+| | BL | GPIO 48 | Backlight Control (High = ON) |
+| **SDMMC** | CLK | GPIO 14 | 4-bit SD Bus Clock |
+| | CMD | GPIO 15 | Command Line |
+| | D0 | GPIO 16 | Data Bit 0 |
+| | D1 | GPIO 18 | Data Bit 1 |
+| | D2 | GPIO 17 | Data Bit 2 |
+| | D3 | GPIO 21 | Data Bit 3 |
 
-## 5. Implementation Phases
+---
 
-*   **Phase 1: Hardware Bring-up & Air-Gap UI (Completed)**
-    *   [x] Initialize ST7789 LCD display and backlight.
-    *   [x] Mount SDMMC 4-bit microSD card via FATFS.
-    *   [x] Initialize Wi-Fi SoftAP and local HTTP web server.
-    *   [x] Implement "Radio Silence" transition (disable Wi-Fi, then enable TinyUSB CDC).
-    *   [x] Configure custom partition table (`partitions.csv`) for 16MB flash.
+## Key Technical Solutions & Hardware Workarounds
 
-*   **Phase 2: Cryptographic Core & Storage (Current Phase)**
-    *   [ ] Implement key derivation (PBKDF2 / HMAC) and key wrapping.
-    *   [ ] Write AES-GCM chunk processing layer for SD card streaming.
-    *   [ ] Validate crypto implementations with known-answer tests.
+1. **Memory Alignment & Column Gap Offset:**
+   * The ST7789 controller manages an internal $240 \times 320$ RAM address space, but the glass panel is $172 \times 320$.
+   * An explicit **34-pixel column gap offset** (`esp_lcd_panel_set_gap(panel_handle, 34, 0)`) centers the active display window.
+2. **LVGL Full-Refresh Mode:**
+   * Partial area transfers in LVGL 9 caused memory address corruption (`CASET`/`RASET` bounding-box misalignment), leading to a static box on screen.
+   * Enabling **`.flags.full_refresh = true`** forces LVGL to transfer complete $172 \times 320$ framebuffers over DMA, completely eliminating display static.
+3. **Orientation Calibration:**
+   * Handled cleanly via software rotation in the LVGL engine using `lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_270)`.
 
-*   **Phase 3: PIN and Recovery Flow**
-    *   [ ] Implement initial device enrollment and recovery key generation.
-    *   [ ] Build PIN retry throttling and NVS lockout logic.
+---
 
-*   **Phase 4: Desktop File Manager & USB Protocol**
-    *   [ ] Finalize USB CDC command protocol.
-    *   [ ] Build the Python PySide6 cross-platform desktop application.
-    *   [ ] Test interrupted transfers and large files.
+## Complete Source Code (`main/main.c`)
 
-*   **Phase 5: Production Hardening**
-    *   [ ] Audit security boundaries.
-    *   [ ] Enable Secure Boot V2 and Flash Encryption eFuses.
-    *   [ ] Disable JTAG/debug interfaces.
+```c
+#include <stdio.h>
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "nvs_flash.h"
+#include "esp_wifi.h"
+#include "esp_mac.h"
+#include "esp_netif.h"
+#include "esp_http_server.h"
+#include "driver/gpio.h"
+#include "driver/spi_master.h"
+#include "driver/sdmmc_host.h"
+#include "sdmmc_cmd.h"
+#include "esp_vfs_fat.h"
+#include "esp_lcd_panel_io.h"
+#include "esp_lcd_panel_vendor.h"
+#include "esp_lcd_panel_ops.h"
+#include "tinyusb.h"
+#include "tinyusb_default_config.h"
+#include "tinyusb_cdc_acm.h"
+#include "esp_lvgl_port.h"
+#include "lvgl.h"
 
-## 6. USB CDC Command Protocol Definition
-The desktop client and ESP32 communicate using a strict, versioned command-response protocol over serial:
+static const char *TAG = "vault_main";
 
-| Command | Purpose |
-| :--- | :--- |
-| `GET_STATUS` | Returns the current locked/unlocked state and protocol version. |
-| `LIST_FILES` | Returns encrypted manifest filenames (only if unlocked). |
-| `UPLOAD_BEGIN` | Starts a new encrypted file transfer to the SD card. |
-| `UPLOAD_CHUNK` | Sends a chunk of plaintext to be encrypted on-device. |
-| `DOWNLOAD_BEGIN` | Requests an authorized file download. |
-| `DOWNLOAD_CHUNK` | Returns authenticated, decrypted file data to the host. |
-| `DELETE_FILE` | Deletes a specified file (only if unlocked). |
-| `LOCK` | Ends the session, stops operations, and clears the active key from RAM. |
+#define WIFI_SSID      "MyEarPods"
+#define WIFI_PASS      "53cur3ty"
+#define VAULT_PIN      "pin=123456"
 
-## 7. Project Directory Structure
-```text
-esp32-vault/
-├── firmware/
-│   ├── main/                 # Startup, hardware init, application state
-│   ├── web_ui/               # HTML/CSS payload, HTTP endpoint handlers
-│   ├── display/              # LVGL rendering for LCD status screen
-│   ├── crypto/               # AES-GCM, HMAC, key wrapping
-│   ├── storage/              # SD FATFS, encrypted manifest
-│   ├── usb/                  # TinyUSB CDC command protocol
-│   ├── security/             # PIN throttling, lock state, recovery
-│   ├── partitions.csv        # Custom 16MB partition layout
-│   └── sdkconfig             # ESP-IDF build configuration
-├── desktop/
-│   ├── shared/               # USB protocol and validation logic
-│   ├── app/                  # PySide6 Cross-platform file manager
-│   └── tests/                # Protocol and transfer tests
-├── tools/
-│   ├── provision/            # Explicit first-use setup scripts
-│   └── vault-inspect/        # Safe encrypted-container diagnostics
-├── docs/
-│   ├── THREAT_MODEL.md
-│   ├── KEY_DESIGN.md
-│   └── PROTOCOL.md
-└── tests/                    # Firmware unit tests
+// --- PINS ---
+#define LCD_MOSI  45
+#define LCD_SCLK  40
+#define LCD_CS    42
+#define LCD_DC    41
+#define LCD_RST   39
+#define LCD_BL    48
+
+#define SD_CLK    14
+#define SD_CMD    15
+#define SD_D0     16
+#define SD_D1     18
+#define SD_D2     17
+#define SD_D3     21
+
+static esp_lcd_panel_io_handle_t io_handle = NULL;
+static esp_lcd_panel_handle_t panel_handle = NULL;
+static lv_obj_t *ui_status_label = NULL;
+static lv_obj_t *ui_prompt_label = NULL;
+volatile bool vault_unlocked = false;
+static httpd_handle_t server = NULL;
+
+const char* html_page = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+"<style>body{font-family:sans-serif;text-align:center;background:#f4f4f9;color:#333;margin-top:50px;}"
+"input[type=password]{font-size:2em;width:80%;margin:20px;text-align:center;padding:10px;border-radius:8px;border:1px solid #ccc;}"
+"input[type=submit]{font-size:1.5em;padding:15px 40px;background:#007aff;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;}</style></head>"
+"<body><h2>EarPods Configuration</h2><p>Enter device PIN to connect</p><form action=\"/unlock\" method=\"POST\">"
+"<input type=\"password\" name=\"pin\" inputmode=\"numeric\" placeholder=\"PIN\" autofocus required><br>"
+"<input type=\"submit\" value=\"Connect\"></form></body></html>";
+
+static esp_err_t root_get_handler(httpd_req_t *req) {
+    httpd_resp_set_type(req, "text/html");
+    return httpd_resp_send(req, html_page, HTTPD_RESP_USE_STRLEN);
+}
+
+static esp_err_t unlock_post_handler(httpd_req_t *req) {
+    char buf[100];
+    int ret, remaining = req->content_len;
+
+    if (remaining >= sizeof(buf)) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+    ret = httpd_req_recv(req, buf, remaining);
+    if (ret <= 0) return ESP_FAIL;
+    buf[ret] = '\0';
+
+    if (strcmp(buf, VAULT_PIN) == 0) {
+        vault_unlocked = true;
+        const char* success_resp = "<!DOCTYPE html><html><body style=\"background:#f4f4f9;color:#333;text-align:center;font-family:sans-serif;margin-top:50px;\"><h2>Connected.</h2><p>You may close this page.</p></body></html>";
+        httpd_resp_send(req, success_resp, HTTPD_RESP_USE_STRLEN);
+    } else {
+        const char* fail_resp = "<!DOCTYPE html><html><body style=\"background:#f4f4f9;color:#d9534f;text-align:center;font-family:sans-serif;margin-top:50px;\"><h2>Pairing Failed.</h2><a href=\"/\" style=\"color:#007aff;\">Try Again</a></body></html>";
+        httpd_resp_send(req, fail_resp, HTTPD_RESP_USE_STRLEN);
+    }
+    return ESP_OK;
+}
+
+void start_webserver(void) {
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    if (httpd_start(&server, &config) == ESP_OK) {
+        httpd_uri_t root = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler, .user_ctx = NULL };
+        httpd_uri_t unlock = { .uri = "/unlock", .method = HTTP_POST, .handler = unlock_post_handler, .user_ctx = NULL };
+        httpd_register_uri_handler(server, &root);
+        httpd_register_uri_handler(server, &unlock);
+    }
+}
+
+void wifi_init_softap(void) {
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_create_default_wifi_ap();
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    wifi_config_t wifi_config = {
+        .ap = {
+            .ssid = WIFI_SSID,
+            .ssid_len = strlen(WIFI_SSID),
+            .channel = 1,
+            .password = WIFI_PASS,
+            .max_connection = 1,
+            .authmode = WIFI_AUTH_WPA2_PSK
+        },
+    };
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+}
+
+void init_lcd(void) {
+    gpio_config_t bk_gpio_config = {
+        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = (1ULL << LCD_BL)
+    };
+    gpio_config(&bk_gpio_config);
+
+    spi_bus_config_t buscfg = {
+        .sclk_io_num = LCD_SCLK,
+        .mosi_io_num = LCD_MOSI,
+        .miso_io_num = -1,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 172 * 320 * 2 + 8
+    };
+    ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
+
+    esp_lcd_panel_io_spi_config_t io_config = {
+        .dc_gpio_num = LCD_DC,
+        .cs_gpio_num = LCD_CS,
+        .pclk_hz = 20 * 1000 * 1000,
+        .lcd_cmd_bits = 8,
+        .lcd_param_bits = 8,
+        .spi_mode = 0,
+        .trans_queue_depth = 10,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)SPI2_HOST, &io_config, &io_handle));
+
+    esp_lcd_panel_dev_config_t panel_config = {
+        .reset_gpio_num = LCD_RST,
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
+        .bits_per_pixel = 16,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
+
+    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
+    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+
+    ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 34, 0));
+    ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true));
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
+
+    gpio_set_level(LCD_BL, 1);
+}
+
+void init_sd_card(void) {
+    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+        .format_if_mount_failed = false, .max_files = 5, .allocation_unit_size = 16 * 1024
+    };
+    sdmmc_card_t *card;
+    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+    
+    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+    slot_config.width = 4; slot_config.clk = SD_CLK; slot_config.cmd = SD_CMD;
+    slot_config.d0 = SD_D0; slot_config.d1 = SD_D1; slot_config.d2 = SD_D2; slot_config.d3 = SD_D3;
+
+    esp_err_t ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "SD mount failed.");
+    }
+}
+
+void init_ui(void) {
+    const lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
+    ESP_ERROR_CHECK(lvgl_port_init(&lvgl_cfg));
+
+    const lvgl_port_display_cfg_t disp_cfg = {
+        .io_handle = io_handle,
+        .panel_handle = panel_handle,
+        .buffer_size = 172 * 320,
+        .double_buffer = false,
+        .hres = 172,
+        .vres = 320,
+        .monochrome = false,
+        .color_format = LV_COLOR_FORMAT_RGB565,
+        .flags = { 
+            .buff_dma = true,
+            .full_refresh = true
+        }
+    };
+    
+    lvgl_port_lock(0);
+
+    lv_display_t *disp = lvgl_port_add_disp(&disp_cfg);
+
+    // Set rotation to 270 degrees to flip text 180 degrees
+    lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_270);
+
+    lv_obj_t *scr = lv_scr_act();
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), LV_PART_MAIN);
+
+    ui_status_label = lv_label_create(scr);
+    lv_label_set_text(ui_status_label, "PAIRING MODE");
+    lv_obj_set_style_text_color(ui_status_label, lv_color_hex(0xFF8800), LV_PART_MAIN);
+    lv_obj_align(ui_status_label, LV_ALIGN_TOP_MID, 0, 20);
+
+    ui_prompt_label = lv_label_create(scr);
+    lv_label_set_text(ui_prompt_label, "Wi-Fi AP Active:\nMyEarPods\n\nIP Address:\n192.168.4.1");
+    lv_obj_set_style_text_align(ui_prompt_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_color(ui_prompt_label, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_align(ui_prompt_label, LV_ALIGN_CENTER, 0, 10);
+    
+    lvgl_port_unlock();
+}
+
+void update_ui_unlocked(void) {
+    lvgl_port_lock(0);
+    lv_label_set_text(ui_status_label, "CONNECTED");
+    lv_obj_set_style_text_color(ui_status_label, lv_color_hex(0x00FF00), LV_PART_MAIN);
+    
+    lv_label_set_text(ui_prompt_label, "USB Data Interface Active");
+    lvgl_port_unlock();
+}
+
+void init_usb_cdc(void) {
+    const tinyusb_config_t tusb_cfg = TINYUSB_DEFAULT_CONFIG();
+    ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
+
+    tinyusb_config_cdcacm_t acm_cfg = { 0 }; 
+    if (!tinyusb_cdcacm_initialized(TINYUSB_CDC_ACM_0)) {
+        ESP_ERROR_CHECK(tinyusb_cdcacm_init(&acm_cfg));
+    }
+}
+
+void app_main(void) {
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+      ESP_ERROR_CHECK(nvs_flash_erase());
+      ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    init_lcd();
+    init_ui();
+    init_sd_card();
+    
+    wifi_init_softap();
+    start_webserver();
+
+    while (!vault_unlocked) {
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+
+    if (server) {
+        httpd_stop(server);
+    }
+    esp_wifi_stop();
+    esp_wifi_deinit();
+
+    update_ui_unlocked();
+    init_usb_cdc();
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
