@@ -1,6 +1,3 @@
-Here is the complete, consolidated `main.c` containing all hardware fixes, clean ST7789 display parameters, LVGL 9 full-refresh settings, 180° orientation adjustment, stealth Wi-Fi pairing server, and the air-gapped TinyUSB CDC transition:
-
-```c
 #include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
