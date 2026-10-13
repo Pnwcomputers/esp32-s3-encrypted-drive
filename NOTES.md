@@ -7,7 +7,7 @@ A self-contained hardware vault that encrypts files on a microSD card. It unlock
 *   **Microcontroller:** Waveshare ESP32-S3-LCD-1.47 (16MB Flash configuration).
 *   **Display:** 1.47" ST7789 IPS LCD (SPI interface).
 *   **Storage:** 64 GB microSD card (4-bit SDMMC interface).
-*   **Host Interface:** Native USB (USB CDC / TinyUSB).
+*   **Host Interface:** Native USB (USB CDC / TinyUSB v2.4.0).
 *   **Input Method:** Additional physical navigation buttons (Up, Down, Next, Back, Enter, Lock).
 
 ## 3. Security Architecture
@@ -26,7 +26,7 @@ A self-contained hardware vault that encrypts files on a microSD card. It unlock
     *   *Stolen Device & Card:* Firmware enforces persistent, increasing delays after failed PIN attempts (rate limiting).
 
 ## 4. Software Architecture
-### Firmware (ESP-IDF, C/C++)
+### Firmware (ESP-IDF v6.1, C/C++)
 *   **UI/Display:** Handles the ST7789 display, lock screen, PIN keypad, and status messages.
 *   **Crypto Core:** Manages eFuse HMAC, key derivation, key wrapping, and AES-GCM chunk processing.
 *   **Storage Layer:** Handles FATFS, the encrypted file manifest, and crash-safe file writes.
@@ -38,25 +38,31 @@ A self-contained hardware vault that encrypts files on a microSD card. It unlock
 *   Provides a conventional GUI (list, upload, download, delete) without ever receiving the master encryption key.
 
 ## 5. Implementation Phases
-*   **Phase 1: Hardware Bring-up (Current Phase)**
-    *   Initialize ST7789 LCD display.
-    *   Mount SDMMC 4-bit microSD card.
-    *   Initialize TinyUSB CDC interface.
-    *   Wire and debounce physical navigation buttons.
-*   **Phase 2: Cryptographic Core**
-    *   Implement key wrapping, AES-GCM chunks, encrypted metadata, and crash-safe file writes.
-    *   Validate with known-answer tests.
+
+*   **Phase 1: Hardware Bring-up (Completed)**
+    *   [x] Initialize ST7789 LCD display and backlight.
+    *   [x] Mount SDMMC 4-bit microSD card via FATFS.
+    *   [x] Initialize TinyUSB CDC interface (Confirmed enumerating on host OS).
+    *   [ ] Wire and debounce physical navigation buttons.
+
+*   **Phase 2: UI & Cryptographic Core (Current Phase)**
+    *   [ ] Draw PIN prompt and lock screen UI on the LCD.
+    *   [ ] Implement key wrapping, AES-GCM chunks, encrypted metadata, and crash-safe file writes.
+    *   [ ] Validate crypto implementations with known-answer tests.
+
 *   **Phase 3: PIN and Recovery Flow**
-    *   Implement initial device enrollment and recovery key generation.
-    *   Build the on-screen PIN entry, verification, and retry throttling UI.
+    *   [ ] Implement initial device enrollment and recovery key generation.
+    *   [ ] Build the on-screen PIN entry, verification, and retry throttling UI.
+
 *   **Phase 4: Desktop File Manager & USB Protocol**
-    *   Finalize USB CDC command protocol.
-    *   Build the Python PySide6 cross-platform desktop application.
-    *   Test interrupted transfers and large files.
+    *   [ ] Finalize USB CDC command protocol.
+    *   [ ] Build the Python PySide6 cross-platform desktop application.
+    *   [ ] Test interrupted transfers and large files.
+
 *   **Phase 5: Production Hardening**
-    *   Audit security boundaries.
-    *   Enable Secure Boot V2 and Flash Encryption eFuses.
-    *   Disable JTAG/debug interfaces.
+    *   [ ] Audit security boundaries.
+    *   [ ] Enable Secure Boot V2 and Flash Encryption eFuses.
+    *   [ ] Disable JTAG/debug interfaces.
 
 ## 6. USB CDC Command Protocol Definition
 The desktop client and ESP32 communicate using a strict, versioned command-response protocol over serial:
