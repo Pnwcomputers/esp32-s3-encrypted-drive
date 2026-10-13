@@ -1,4 +1,3 @@
-```markdown
 # ESP32-S3 Encrypted Hardware Vault: Project Blueprint
 
 ## 1. Project Overview
@@ -96,9 +95,3 @@ esp32-vault/
 │   ├── KEY_DESIGN.md
 │   └── PROTOCOL.md
 └── tests/                    # Firmware unit tests
-
-```
-
-```
-
-```
