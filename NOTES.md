@@ -1,14 +1,14 @@
 # ESP32-S3 Encrypted Hardware Vault: Project Blueprint
 
 ## 1. Project Overview
-A self-contained hardware vault that encrypts files on a microSD card. It unlocks using the built-in LCD screen and a PIN entered via physical navigation buttons. Files are transferred to a computer over a USB connection without exposing the vault's master encryption key to the host operating system.
+A stealthy, self-contained hardware vault that encrypts files on a microSD card. It unlocks via a temporary, air-gapped Wi-Fi Access Point and a smartphone browser. Once unlocked, the radios are permanently disabled and files are transferred to a computer over a USB connection without exposing the vault's master encryption key to the host operating system.
 
 ## 2. Hardware Specifications
-*   **Microcontroller:** Waveshare ESP32-S3-LCD-1.47 (16MB Flash configuration).
-*   **Display:** 1.47" ST7789 IPS LCD (SPI interface).
+*   **Microcontroller:** Waveshare ESP32-S3-LCD-1.47 (USB-A Thumb-Drive Form Factor, 16MB Flash).
+*   **Display:** 1.47" ST7789 IPS LCD (SPI interface) for status readout.
 *   **Storage:** 64 GB microSD card (4-bit SDMMC interface).
 *   **Host Interface:** Native USB (USB CDC / TinyUSB v2.4.0).
-*   **Input Method:** Additional physical navigation buttons (Up, Down, Next, Back, Enter, Lock).
+*   **Input Method:** Temporary Wi-Fi SoftAP + Lightweight HTTP Web Server (Smartphone UI).
 
 ## 3. Security Architecture
 *   **Core Encryption:** AES-256-GCM authenticated encryption for all files and metadata.
@@ -16,21 +16,21 @@ A self-contained hardware vault that encrypts files on a microSD card. It unlock
     *   Device-specific secret stored in the ESP32-S3 eFuse (HMAC accelerator).
     *   Randomly generated 256-bit vault master key.
     *   The vault key is wrapped (encrypted) by a Key Encryption Key (KEK) derived from the eFuse secret, a random salt, and the user's PIN.
-*   **Recovery Mechanism:** A separately generated, high-entropy recovery secret that wraps the vault key independently. Stored offline by the user.
+*   **Air-Gapped Radio Silence:** The Wi-Fi AP is only broadcast while the device is locked and disconnected from the host data interface. Immediately upon a successful PIN entry, the Wi-Fi and Bluetooth radios are **permanently disabled at the hardware level** for the duration of the session to eliminate remote attack surfaces.
 *   **Hardware Hardening:** 
     *   Secure Boot V2 to prevent unauthorized firmware modifications.
     *   Flash Encryption to protect the firmware and on-board storage.
-    *   Wi-Fi and Bluetooth permanently disabled during vault operation.
 *   **Threat Mitigation:** 
     *   *Stolen SD Card:* Files remain encrypted. Offline brute-forcing the PIN is impractical without the physical ESP32 eFuse secret.
-    *   *Stolen Device & Card:* Firmware enforces persistent, increasing delays after failed PIN attempts (rate limiting).
+    *   *Stolen Device:* Firmware enforces persistent, increasing delays after failed PIN attempts (rate limiting) via NVS storage.
 
 ## 4. Software Architecture
 ### Firmware (ESP-IDF v6.1, C/C++)
-*   **UI/Display:** Handles the ST7789 display, lock screen, PIN keypad, and status messages.
+*   **Web Server (HTTPD):** Serves the HTML/CSS PIN-pad interface locally at `192.168.4.1`.
+*   **UI/Display (LVGL):** Handles the ST7789 display to show connection status, lock state, and transfer progress.
 *   **Crypto Core:** Manages eFuse HMAC, key derivation, key wrapping, and AES-GCM chunk processing.
 *   **Storage Layer:** Handles FATFS, the encrypted file manifest, and crash-safe file writes.
-*   **USB Protocol:** TinyUSB CDC command-and-response protocol. Only processes commands when the vault is unlocked.
+*   **USB Protocol:** TinyUSB CDC command-and-response protocol. Only initializes *after* the Wi-Fi radio is torn down.
 
 ### Desktop Client (Python, PySide6)
 *   Cross-platform (Windows, macOS, Linux) file manager utility.
@@ -39,20 +39,20 @@ A self-contained hardware vault that encrypts files on a microSD card. It unlock
 
 ## 5. Implementation Phases
 
-*   **Phase 1: Hardware Bring-up (Completed)**
+*   **Phase 1: Hardware Bring-up & Air-Gap UI (Completed)**
     *   [x] Initialize ST7789 LCD display and backlight.
     *   [x] Mount SDMMC 4-bit microSD card via FATFS.
-    *   [x] Initialize TinyUSB CDC interface (Confirmed enumerating on host OS).
-    *   [ ] Wire and debounce physical navigation buttons.
+    *   [x] Initialize Wi-Fi SoftAP and local HTTP web server.
+    *   [x] Implement "Radio Silence" transition (disable Wi-Fi, then enable TinyUSB CDC).
 
-*   **Phase 2: UI & Cryptographic Core (Current Phase)**
-    *   [ ] Draw PIN prompt and lock screen UI on the LCD.
-    *   [ ] Implement key wrapping, AES-GCM chunks, encrypted metadata, and crash-safe file writes.
+*   **Phase 2: Cryptographic Core & Storage (Current Phase)**
+    *   [ ] Implement key derivation (PBKDF2 / HMAC) and key wrapping.
+    *   [ ] Write AES-GCM chunk processing layer for SD card streaming.
     *   [ ] Validate crypto implementations with known-answer tests.
 
 *   **Phase 3: PIN and Recovery Flow**
     *   [ ] Implement initial device enrollment and recovery key generation.
-    *   [ ] Build the on-screen PIN entry, verification, and retry throttling UI.
+    *   [ ] Build PIN retry throttling and NVS lockout logic.
 
 *   **Phase 4: Desktop File Manager & USB Protocol**
     *   [ ] Finalize USB CDC command protocol.
@@ -83,12 +83,12 @@ The desktop client and ESP32 communicate using a strict, versioned command-respo
 esp32-vault/
 ├── firmware/
 │   ├── main/                 # Startup, hardware init, application state
-│   ├── ui/                   # LCD rendering, PIN entry, navigation
+│   ├── web_ui/               # HTML/CSS payload, HTTP endpoint handlers
+│   ├── display/              # LVGL rendering for LCD status screen
 │   ├── crypto/               # AES-GCM, HMAC, key wrapping
 │   ├── storage/              # SD FATFS, encrypted manifest
 │   ├── usb/                  # TinyUSB CDC command protocol
-│   ├── security/             # PIN throttling, lock state
-│   └── provisioning/         # First-use setup and recovery logic
+│   └── security/             # PIN throttling, lock state, recovery
 ├── desktop/
 │   ├── shared/               # USB protocol and validation logic
 │   ├── app/                  # PySide6 Cross-platform file manager
