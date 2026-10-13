@@ -1,0 +1,4 @@
+# Pin exact tested versions before release.
+PySide6
+pyserial
+pytest

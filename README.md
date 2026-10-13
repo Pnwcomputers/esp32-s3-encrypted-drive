@@ -1,126 +1,41 @@
-# 🚀 TITLE
+# ESP32-S3-LCD-1.47 Encrypted Vault — Starter Scaffold
 
-![Automation Level](https://img.shields.io/badge/Automation-Zero%20Touch-green)
-![Windows Support](https://img.shields.io/badge/Windows-10%20%7C%2011-blue)
-![PowerShell Version](https://img.shields.io/badge/PowerShell-5.1%2B-blue)
-![Enterprise Ready](https://img.shields.io/badge/Enterprise-Ready-purple)
-![GitHub issues](https://img.shields.io/github/issues/Pnwcomputers/DeployWorkstation)
-![Maintenance](https://img.shields.io/badge/Maintained-Yes-green)
+**Status: architecture and development scaffold only. Not production-ready and not yet hardware-verified.**
 
-**Title 2**
+This repository intentionally does not burn eFuses, enable Secure Boot, enable flash-encryption release mode, or provision real secrets. Those operations can be irreversible. The starter firmware is deliberately minimal and does not yet implement encryption, PIN handling, SD-card access, or USB commands.
 
-Description
+## Target
 
-## ✨ Key Features
+- Board family: Waveshare ESP32-S3-LCD-1.47 (confirm exact PCB revision before wiring)
+- Storage: 64 GB microSD (actual usable capacity and filesystem support depend on card/partition and chosen driver)
+- Firmware: ESP-IDF, C
+- Host application: Python + PySide6 planned; pyserial for USB CDC
+- Transport: USB CDC-ACM command protocol, not USB Mass Storage
+- PIN input: external navigation buttons; GPIO assignments intentionally TBD pending schematic/revision verification
 
-- **🔐 
-- **🗑️ 
-- **⚙️ 
-- **📦 
-- **💾 
-- **📋
-  
+## Repository map
 
-## 🚀 Quick Links
+- `firmware/`: minimal ESP-IDF application scaffold
+- `desktop/`: protocol specification and Python host skeleton
+- `docs/`: threat model, key design, provisioning/recovery, hardware validation
+- `tests/`: initial host-side protocol-format tests
+- `tools/`: no destructive provisioning commands are included
 
-- **🎯 [Quick Start](QuickStart.cmd)** - One-click deployment wizard
-- **📖 [Installation Guide](docs/INSTALLATION.md)** - Detailed setup instructions  
-- **⚙️ [Configuration Guide](docs/CONFIGURATION.md)** - Customize your deployment
-- **🔧 [Troubleshooting](docs/TROUBLESHOOTING.md)** - Solve common issues
-- **🧪 [Testing](tests/)** - Run validation tests
-- **📋 [Contributing](CONTRIBUTING.md)** - Help improve the project
+## Important security design decisions
 
+1. Use a random 256-bit vault data-encryption key (DEK), generated from the ESP32-S3 hardware RNG after entropy is initialized.
+2. Encrypt file contents with AES-256-GCM. Each encryption invocation must use a unique 96-bit nonce for the same key. Never reuse a nonce with a key.
+3. Use independently authenticated chunks with unique nonces and bind file ID, chunk index, format version, and expected chunk length as authenticated additional data (AAD).
+4. Encrypt filenames and the file index. Do not expose plaintext names, directory paths, or user metadata on the card.
+5. Use a per-device eFuse HMAC key only after confirming supported key purpose/API and the exact chip/eFuse state. A read-protected HMAC key is intended to be used by hardware HMAC APIs; application design must not assume it can read the key bytes.
+6. A PIN is low entropy. Do not use a fast plain hash of the PIN as the only key derivation. Use a reviewed construction with a hardware-held secret and a random salt; rate-limit online attempts. Have an independent security review before claiming offline-guess resistance.
+7. Recovery uses a separate high-entropy random recovery secret, not a short recovery PIN. Store it outside the device and card. Verify recovery before the user confirms setup.
+8. Never send the DEK, wrapping keys, HMAC secret, or recovery secret over USB.
+9. Secure Boot and flash encryption protect firmware/on-chip flash, not the microSD card. The vault file encryption is separate.
+10. Keep eFuse programming disabled until the complete firmware, update path, and recovery procedure have been tested on a spare device.
 
-### Quick Start
+## Build status
 
-1. **📥 Download the Repository**
+The firmware skeleton uses standard ESP-IDF project conventions but is not claimed to compile against every ESP-IDF release or to drive this board's display. Pin the exact ESP-IDF version and board revision before hardware integration.
 
-2. **💾 Prepare Deployment Media**
-
-3. **▶️ Execute Deployment**
-
-4. **⏳ Monitor Progress**
-
-5. **✅ Review & Reboot**
-
-
-## 🔧 Advanced Configuration
-
-
-## 📊 Feature Comparison
-
-| Feature | Manual Deployment | Other Tools | DeployWorkstation |
-|---------|------------------|-------------|-------------------|
-
-
-## 🎯 Use Cases
-
-
-## 🛠️ Project Structure
-
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-## 🔮 Roadmap
-
-### Version 1.1 (Q3 2025)
-
-### Version 2.0 (Q4 2025)
-
-### Future Enhancements
-
-
-## 🤝 Contributing
-
-We welcome contributions! Here's how to get started:
-
-### 📖 Documentation
-- Improve README clarity
-- Add configuration examples
-- Create troubleshooting guides
-
-### 🐛 Bug Reports
-- Open issues with detailed descriptions
-- Include system information
-- Provide log excerpts
-
-### 💡 Feature Requests
-- Open issues with [FEATURE] tag
-- Describe use case and benefits
-- Consider implementation complexity
-
-### 🔒 Security Issues
-- Email support@pnwcomputers.com
-- Include proof of concept (if safe)
-- Allow reasonable disclosure time
-
-## 📄 License
-
-No License = All Rights Reserved
-
-## 📞 Support & Contact
-
-- 📖 **Documentation**: Check this README and project wiki
-- 🐛 **Bug Reports**: Open an issue on GitHub
-- 💡 **Feature Requests**: Open an issue with [FEATURE] tag
-- 🔒 **Security Issues & General Support**: Email [support@pnwcomputers.com](mailto:support@pnwcomputers.com)
-
----
-
-## 📊 Statistics
-
-![GitHub stars](https://img.shields.io/github/stars/Pnwcomputers/DeployWorkstation)
-![GitHub forks](https://img.shields.io/github/forks/Pnwcomputers/DeployWorkstation)
-![GitHub issues](https://img.shields.io/github/issues/Pnwcomputers/DeployWorkstation)
-![GitHub license](https://img.shields.io/github/license/Pnwcomputers/DeployWorkstation)
-
-
-Built with ❤️ for efficiency, reliability, and zero-touch automation.
-
-[⭐ Star this repo](https://github.com/Pnwcomputers/) if it saved you time and effort!
-
----
-
-### www.linktr.ee/pnwcomputers
+See `docs/IMPLEMENTATION_PLAN.md` and `docs/NO_GUESSING_CHECKLIST.md`.
