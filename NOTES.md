@@ -1,10 +1,11 @@
 # ESP32-S3 Encrypted Hardware Vault: Project Blueprint
 
 ## 1. Project Overview
-A stealthy, self-contained hardware vault that encrypts files on a microSD card. It unlocks via a temporary, air-gapped Wi-Fi Access Point and a smartphone browser. Once unlocked, the radios are permanently disabled and files are transferred to a computer over a USB connection without exposing the vault's master encryption key to the host operating system.
+A stealthy, self-contained hardware vault that encrypts files on a microSD card. It unlocks via a temporary, air-gapped Wi-Fi Access Point (camouflaged as wireless earbuds) and a smartphone browser. Once unlocked, the radios are permanently disabled and files are transferred to a computer over a USB connection without exposing the vault's master encryption key to the host operating system.
 
 ## 2. Hardware Specifications
 *   **Microcontroller:** Waveshare ESP32-S3-LCD-1.47 (USB-A Thumb-Drive Form Factor, 16MB Flash).
+*   **Partitioning:** Custom partition table allocating 4MB for the main application to accommodate LVGL, Wi-Fi, and HTTP server stacks.
 *   **Display:** 1.47" ST7789 IPS LCD (SPI interface) for status readout.
 *   **Storage:** 64 GB microSD card (4-bit SDMMC interface).
 *   **Host Interface:** Native USB (USB CDC / TinyUSB v2.4.0).
@@ -16,6 +17,7 @@ A stealthy, self-contained hardware vault that encrypts files on a microSD card.
     *   Device-specific secret stored in the ESP32-S3 eFuse (HMAC accelerator).
     *   Randomly generated 256-bit vault master key.
     *   The vault key is wrapped (encrypted) by a Key Encryption Key (KEK) derived from the eFuse secret, a random salt, and the user's PIN.
+*   **Active Camouflage:** The unlock interface masquerades as an audio device (`MyEarPods`) with a generic configuration web page, avoiding suspicion during public Wi-Fi scans.
 *   **Air-Gapped Radio Silence:** The Wi-Fi AP is only broadcast while the device is locked and disconnected from the host data interface. Immediately upon a successful PIN entry, the Wi-Fi and Bluetooth radios are **permanently disabled at the hardware level** for the duration of the session to eliminate remote attack surfaces.
 *   **Hardware Hardening:** 
     *   Secure Boot V2 to prevent unauthorized firmware modifications.
@@ -44,6 +46,7 @@ A stealthy, self-contained hardware vault that encrypts files on a microSD card.
     *   [x] Mount SDMMC 4-bit microSD card via FATFS.
     *   [x] Initialize Wi-Fi SoftAP and local HTTP web server.
     *   [x] Implement "Radio Silence" transition (disable Wi-Fi, then enable TinyUSB CDC).
+    *   [x] Configure custom partition table (`partitions.csv`) for 16MB flash.
 
 *   **Phase 2: Cryptographic Core & Storage (Current Phase)**
     *   [ ] Implement key derivation (PBKDF2 / HMAC) and key wrapping.
@@ -88,7 +91,9 @@ esp32-vault/
 │   ├── crypto/               # AES-GCM, HMAC, key wrapping
 │   ├── storage/              # SD FATFS, encrypted manifest
 │   ├── usb/                  # TinyUSB CDC command protocol
-│   └── security/             # PIN throttling, lock state, recovery
+│   ├── security/             # PIN throttling, lock state, recovery
+│   ├── partitions.csv        # Custom 16MB partition layout
+│   └── sdkconfig             # ESP-IDF build configuration
 ├── desktop/
 │   ├── shared/               # USB protocol and validation logic
 │   ├── app/                  # PySide6 Cross-platform file manager
