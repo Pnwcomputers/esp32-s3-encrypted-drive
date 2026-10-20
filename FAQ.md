@@ -1,15 +1,31 @@
-# Frequently asked questions
+# ❓ Frequently Asked Questions
 
-**How do I unlock it without buttons or a touchscreen?** Connect to the device's Wi-Fi and open http://192.168.4.1. The display provides status only. The browser provides the keypad, passphrase entry, file manager and settings.
+### 🔓 How do I unlock it without buttons or a touchscreen?
+Connect to the device's Wi-Fi (`MyEarPods`) and open `http://192.168.4.1`. The LCD shows status only — the browser provides the keypad, passphrase entry, file manager and settings.
 
-**Does Wi-Fi turn off after unlocking?** No. SoftAP and HTTP remain available while powered, including while locked. This is not a radio-disabled air-gap design.
+### 📶 Does Wi-Fi turn off after unlocking?
+No. The SoftAP and HTTP portal stay available while powered, including while locked. This is **not** a radio-disabled air-gap design.
 
-**Can I use a security key?** The current credential is a PIN or passphrase. FIDO hardware keys and recovery-key enrollment are not implemented.
+### 💾 Does it appear as a USB drive letter?
+**Yes — once unlocked.** After you unlock through the web portal and press **Enable SD card drive**, the ESP32 exposes the decrypted volume to the host as a FAT32 USB drive labeled **ESP32 VAULT** (e.g. drive `D:` on Windows). There is also a separate **USB CDC file-transfer protocol** (the Python CLI/GUI) for the older phone/client file area. Both require the vault to be unlocked over Wi-Fi first; while locked, the drive reports no medium.
 
-**Does it appear as a USB drive letter?** No. Use the supplied Python CLI/GUI over USB CDC or the web file manager. USB operations require the global vault to be unlocked through Wi-Fi.
+### 🐢 Why is writing to the drive slow?
+Every 4 KB block is encrypted and committed through a durable redo journal with `fsync` before the write is acknowledged, so throughput is well below a native card reader (tens of KB/s). It's fine for documents and small files; large transfers are slow by design. Faster write batching is on the [roadmap](README.md#-roadmap-reliability--security).
 
-**What if I forget the credential?** There is no recovery wrapper. Resetting Wi-Fi settings does not recover encrypted files. Keep backups and preserve the original card before experimenting.
+### 🧩 "Enable SD card drive" says *"USB drive could not be opened."* What now?
+Make sure the vault is **unlocked**, USB access is enabled in Device settings, and the card has at least ~66 MB free (the FAT32 volume is built from free space at creation). Current firmware requires the board's **PSRAM** to be enabled — if you built older firmware with PSRAM off, the drive allocation fails; rebuild from this repo. The device never auto-formats the card.
 
-**Is the firmware ready for sensitive data?** No production security or physical-board validation is claimed. Read README.md and docs/THREAT_MODEL.md for the current limits.
+### 🔑 Can I use a security key?
+Not yet. The credential is a PIN or passphrase (6–63 UTF-8 bytes). FIDO/WebAuthn hardware keys and recovery-key enrollment are on the [roadmap](README.md#-roadmap-reliability--security), not implemented.
 
-**Why won't a 64 GB card mount?** The current build expects FAT32. Cards sold preformatted as exFAT need a suitable FAT32 partition prepared separately. The firmware never formats a failed mount.
+### 🧯 What if I forget the credential?
+There is **no recovery wrapper** — the data key is unrecoverable without the PIN/passphrase. Resetting Wi-Fi settings does not recover encrypted files. Keep backups and preserve the original card before experimenting.
+
+### 🕵️ If someone steals the card, can they read my files?
+A removed card holds only AES-256-GCM ciphertext, so files are not directly readable. **But** a short numeric PIN is vulnerable to **offline guessing from a copied card** (there is no device-bound hardware secret yet), and the factory Wi-Fi password is public until you change it. Use a long passphrase and change the Wi-Fi password. See [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+
+### 🛡️ Is the firmware ready for sensitive data?
+**No.** This is a development build. No production security hardening (device-bound keys, HTTPS, Secure Boot/flash encryption, signed updates) or independent security review is done, and on-device durability testing is ongoing. Use disposable test data. See [`README.md`](README.md) and [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+
+### 📇 Why won't my 64 GB card mount?
+The firmware expects **FAT32**. Cards sold preformatted as exFAT need a FAT32 partition prepared separately (large cards often default to exFAT). The firmware never formats a failed mount, so an unsupported card simply reports as unavailable.

@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-# 🔐 ESP32-S3 Encrypted Vault Drive
+# 🔐 ESP32-S3 Encrypted Vault Drive *via MicroSD Card*
 ## *Self-Hosted, Air-Gapped Encrypted USB Storage for the Waveshare ESP32-S3-LCD-1.47*
-=======
-# ESP32-S3 Encrypted Vault Drive *via MicroSD Card*
->>>>>>> 921c43c7c2e3a5812a682ee48fc9238d64c9fe3e
 
 ![Platform](https://img.shields.io/badge/Platform-ESP32--S3-E7352C)
 ![Framework](https://img.shields.io/badge/ESP--IDF-5.5.5-blue)
@@ -16,21 +12,13 @@
 
 ### **A microSD vault that only unlocks over its own private Wi-Fi — then appears as a normal encrypted USB drive**
 
-<<<<<<< HEAD
 Development firmware for the **Waveshare ESP32-S3-LCD-1.47** (USB-A thumb-drive form factor) that turns a plain microSD card into an encrypted vault. The card holds only AES-256-GCM ciphertext. The device hosts its own Wi-Fi access point and web portal; after you unlock there, the ESP32 exposes the decrypted volume to the host computer as a real USB drive, decrypting and encrypting every block on the fly. No router, no internet, no buttons, no touch input.
-=======
-## How To Use The Device
->>>>>>> 921c43c7c2e3a5812a682ee48fc9238d64c9fe3e
 
-> ⚠️ **This is a development build for disposable test data.** The ESP-IDF 5.5.5 target build is clean, the host regression suite passes, and the encrypted USB drive has been verified creating, mounting (FAT32), reading and writing on real Windows. Device-bound keys, authenticated transport, Secure Boot/flash encryption and an independent security review are **not** done — see [Security Model & Limits](#️-security-model--limits).
+> ⚠️ **This is a development build for disposable test data.** The ESP-IDF 5.5.5 target build is clean, the host regression suite passes, and the encrypted USB drive has been verified creating, mounting (FAT32), reading and writing on real Windows. Device-bound keys, authenticated transport, Secure Boot/flash encryption and an independent security review are **not** done — see the **Security Model & Limits** section below.
 
 ---
 
-<<<<<<< HEAD
 ## 📌 Project Status
-=======
-## Build & Desktop Tools
->>>>>>> 921c43c7c2e3a5812a682ee48fc9238d64c9fe3e
 
 | Area | State |
 |------|-------|
@@ -40,7 +28,7 @@ Development firmware for the **Waveshare ESP32-S3-LCD-1.47** (USB-A thumb-drive 
 | Encrypted USB-serial (CDC) file round-trips | ✅ Verified on hardware (0 B … 64 KiB, SHA-256 match) |
 | **Encrypted USB drive (MSC) on Windows** | ✅ Create + mount (FAT32) + read/write/delete verified |
 | On-device durability: eject/remount, power-cycle, long transfers, max catalog | ⏳ Needs further exercise |
-| Device-bound keys, HTTPS, Secure Boot, signed updates, security review | ❌ Deferred ([roadmap](#-roadmap-reliability--security)) |
+| Device-bound keys, HTTPS, Secure Boot, signed updates, security review | ❌ Deferred (see Roadmap) |
 
 <details>
 <summary>🐛 Recently fixed</summary>
@@ -156,11 +144,7 @@ The runner executes 17 Python regression functions plus a C regression executabl
 
 See [validation results](docs/VALIDATION.md), [configuration](docs/CONFIGURATION.md), [security limits](docs/THREAT_MODEL.md), [protocol](docs/PROTOCOL.md) and [next hardware checks](docs/HARDWARE_VALIDATION.md).
 
-<<<<<<< HEAD
 ## 🗂️ Project Structure
-=======
-## Security Limits
->>>>>>> 921c43c7c2e3a5812a682ee48fc9238d64c9fe3e
 
 ```text
 esp32-s3-encrypted-drive/
@@ -225,9 +209,9 @@ esp32-s3-encrypted-drive/
 
 ## 🤝 Contributing
 
-Contributions are welcome:
+Contributions are welcome — see [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md):
 
-- **📖 Documentation** — Clarify the README, expand the threat model, add validation evidence
+- **📖 Documentation** — Clarify the README/docs, expand the threat model, add validation evidence
 - **🐛 Bug Reports** — Open an issue with hardware revision, logs, and reproduction steps
 - **💡 Feature Requests** — Open an issue with a `[FEATURE]` tag and the use case
 - **🔒 Security Issues** — Email [support@pnwcomputers.com](mailto:support@pnwcomputers.com) with a proof of concept and allow reasonable disclosure time

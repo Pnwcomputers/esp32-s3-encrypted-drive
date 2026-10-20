@@ -1,15 +1,45 @@
+# --- ESP-IDF / build output ---
 build/
 sdkconfig
 sdkconfig.old
 managed_components/
-__pycache__/
-.pytest_cache/
-.venv/
-venv/
+*.elf
+*.map
+
+# --- Firmware images & secrets (never commit) ---
+*.bin
 *.pem
 *.key
-*.bin
+*.p12
+*.pfx
 secrets/
 provisioning-output/
+*.env
+.env
 
+# --- Build artifacts (reproducible; see tools/build_wsl.sh) ---
 artifacts/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# --- Desktop client temp/download files ---
+*.part
+.vault-*
+
+# --- Editors / IDEs ---
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- OS cruft ---
+.DS_Store
+Thumbs.db
+desktop.ini
