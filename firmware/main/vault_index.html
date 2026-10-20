@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vault controller</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui;background:#0d1521;color:#edf3fa}body{max-width:720px;margin:auto;padding:20px}h1{font-size:26px}h2{font-size:19px}section{background:#172335;border:1px solid #304057;border-radius:16px;padding:20px;margin:16px 0}label{display:block;margin:14px 0 5px;color:#b9c9db}input,select,button{box-sizing:border-box;font:inherit;padding:11px;border:1px solid #4a6078;border-radius:8px;background:#101d2e;color:inherit}input:not([type=checkbox]),select{width:100%}button{cursor:pointer;background:#286ab8;margin:6px 6px 6px 0}button:disabled{opacity:.5;cursor:wait}.danger{background:#8e3346}small,p{color:#b9c9db;line-height:1.5}#message{white-space:pre-wrap;position:sticky;top:8px;background:#243d58;padding:12px;border-radius:8px}#message:empty{display:none}.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.keypad button{margin:0;font-size:22px}.file{border-top:1px solid #304057;padding:12px 0;overflow-wrap:anywhere}.file strong{display:block}progress{width:100%}[hidden]{display:none!important}
+</style>
+<h1>Vault controller <small id="badge">Locked</small></h1><p>Your device’s local Wi-Fi control panel · 192.168.4.1</p>
+<div id="message" role="status" aria-live="polite"></div>
+<section id="unlockView"><h2 id="unlockTitle">Unlock vault</h2><p id="unlockHelp">Enter your PIN or passphrase. No physical buttons are needed.</p>
+<form id="unlockForm"><label for="credential">PIN or passphrase</label><input id="credential" type="password" maxlength="63" autocomplete="off" required>
+<div class="keypad" id="keypad"></div>
+<div id="setupConfirm" hidden><label for="confirmCredential">Confirm new PIN or passphrase</label><input id="confirmCredential" type="password" maxlength="63" autocomplete="off"><p>Use 6–63 characters. Keep this credential safe: there is no PIN recovery.</p></div>
+<button id="unlockButton">Unlock</button></form></section>
+<div id="dashboard" hidden>
+<section><h2>Encrypted files</h2><p id="storage"></p><progress id="capacity" max="100" value="0"></progress>
+<button id="lockButton" class="danger">Lock vault</button><button id="refreshButton">Refresh files</button>
+<label for="files">Upload files</label><input type="file" id="files" multiple><progress id="transfer" max="100" value="0" hidden></progress><p id="transferText"></p><div id="fileList"></div></section>
+<section><h2>Device settings</h2><p>Settings are saved on the device. Restart to apply network, USB and display changes. Auto-lock uses the saved timeout immediately; status polling does not keep the vault unlocked.</p>
+<form id="settingsForm">
+<label for="wifi_ssid">Wi-Fi network name</label><input id="wifi_ssid" maxlength="32" required>
+<label for="wifi_pass">New Wi-Fi password (leave blank to keep)</label><input id="wifi_pass" type="password" minlength="8" maxlength="63" autocomplete="new-password">
+<label for="wifi_channel">Wi-Fi channel (1–11)</label><input id="wifi_channel" type="number" min="1" max="11" required>
+<label><input type="checkbox" id="wifi_hidden"> Hide network name (you must reconnect manually)</label>
+<label for="auto_lock_sec">Idle lock in seconds (0 disables; otherwise 30–86400)</label><input id="auto_lock_sec" type="number" min="0" max="86400" required>
+<label><input type="checkbox" id="usb_enabled"> Enable USB desktop access after restart</label>
+<label for="led_mode">Status LED</label><select id="led_mode"><option value="0">Normal</option><option value="1">Dim</option><option value="2">Off</option></select>
+<label for="lcd_brightness">Screen brightness (10–100%)</label><input id="lcd_brightness" type="number" min="10" max="100" required>
+<label for="lcd_rotation">Screen rotation</label><select id="lcd_rotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select>
+<label for="current_pin">Current PIN or passphrase to authorize changes</label><input id="current_pin" type="password" maxlength="63" autocomplete="off" required>
+<button>Save settings</button><button type="button" id="restartButton">Restart device</button></form></section>
+<section><h2>Change vault credential</h2><p>A PIN or passphrase protects the encryption key. USB/FIDO security keys are not supported by this firmware.</p>
+<form id="pinForm"><label for="old_pin">Current PIN or passphrase</label><input id="old_pin" type="password" maxlength="63" required autocomplete="off">
+<label for="new_pin">New PIN or passphrase (6–63 characters)</label><input id="new_pin" type="password" minlength="6" maxlength="63" required autocomplete="new-password">
+<label for="confirm_pin">Confirm new credential</label><input id="confirm_pin" type="password" maxlength="63" required autocomplete="new-password"><button>Change credential</button></form></section>
+</div>
+<p>Wi-Fi stays available while locked. Files on the SD card are encrypted; this local control page uses HTTP over your WPA2 network. Anyone with USB access can use the vault while it is unlocked. Change the default Wi-Fi password in settings.</p>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+let token='', provisioned=true, active=false, busy=false;
+function message(text){$('message').textContent=text;}
+function size(n){return n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';}
+async function request(path,options={}){
+ const headers=new Headers(options.headers||{});headers.set('X-Vault-Request','1');if(token)headers.set('X-Vault-Token',token);
+ const res=await fetch(path,{...options,headers,cache:'no-store'});
+ if(!res.ok){let d;try{d=await res.json();}catch{}if(res.status===401){token='';showLocked();}throw Error(d?.error||'Request failed ('+res.status+')');}
+ return res;
+}
+async function json(path,data){const r=await request(path,data===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const d=await r.json();if(d.success===false||d.error)throw Error(d.error||'Operation failed');return d;}
+function showLocked(){active=false;$('dashboard').hidden=true;$('unlockView').hidden=false;$('fileList').replaceChildren();$('badge').textContent='Locked';}
+async function status(){if(busy)return;try{const d=await json('/api/status');provisioned=d.provisioned;$('setupConfirm').hidden=provisioned;$('unlockTitle').textContent=provisioned?'Unlock vault':'Set up your vault';$('unlockButton').textContent=provisioned?'Unlock':'Create vault';if(!d.unlocked){token='';showLocked();return;}const was=active;active=true;$('dashboard').hidden=false;$('unlockView').hidden=true;$('badge').textContent='Unlocked';$('storage').textContent=`${d.free_mb} MB free / ${d.total_mb} MB · ${d.file_count} files`;$('capacity').value=d.total_mb?100*d.used_mb/d.total_mb:0;if(!was){await loadFiles();await loadSettings();}}catch(e){message('Device unavailable: '+e.message);}}
+for(const key of ['1','2','3','4','5','6','7','8','9','⌫','0','Clear']){const b=document.createElement('button');b.type='button';b.textContent=key;b.onclick=()=>{const p=$('credential');p.value=key==='Clear'?'':key==='⌫'?p.value.slice(0,-1):(p.value+key).slice(0,63);};$('keypad').append(b);}
+$('unlockForm').onsubmit=async e=>{e.preventDefault();if(!provisioned&&$('credential').value!==$('confirmCredential').value){message('Credentials do not match');return;}const button=$('unlockButton');button.disabled=true;try{const d=await json('/api/unlock',{pin:$('credential').value});token=d.token;$('credential').value=$('confirmCredential').value='';message('Vault unlocked');await status();}catch(e){message(e.message);}finally{button.disabled=false;}};
+async function loadFiles(){const data=await json('/api/files');const root=$('fileList');root.replaceChildren();if(!data.files.length){root.textContent='No files in vault';return;}for(const f of data.files){const row=document.createElement('div');row.className='file';const title=document.createElement('strong');title.textContent=f.name;const meta=document.createElement('small');meta.textContent=size(f.size);const download=document.createElement('button');download.textContent='Download';download.onclick=()=>perform(async()=>{message('Downloading '+f.name);const res=await request('/api/download?id='+encodeURIComponent(f.id));const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);message('Downloaded '+f.name);});const del=document.createElement('button');del.className='danger';del.textContent='Delete';del.onclick=()=>perform(async()=>{if(!confirm('Delete '+f.name+'?'))return;await json('/api/delete',{id:f.id});await loadFiles();});row.append(title,meta,document.createElement('br'),download,del);root.append(row);}}
+async function perform(fn){if(busy)return;busy=true;try{await fn();}catch(e){message(e.message);}finally{busy=false;await status();}}
+$('lockButton').onclick=()=>perform(async()=>{await json('/api/lock',{});token='';showLocked();message('Vault locked');});
+$('refreshButton').onclick=()=>perform(loadFiles);
+$('files').onchange=()=>perform(async()=>{const files=[...$('files').files];$('transfer').hidden=false;try{for(let i=0;i<files.length;i++){const f=files[i];$('transferText').textContent='Encrypting and uploading '+f.name;const r=await request('/api/upload?name='+encodeURIComponent(f.name),{method:'POST',body:f});const d=await r.json();if(!d.success)throw Error(d.error||'Upload failed');$('transfer').value=100*(i+1)/files.length;}message('Uploads complete');await loadFiles();}finally{$('files').value='';$('transfer').hidden=true;$('transferText').textContent='';}});
+const numbers=['wifi_channel','auto_lock_sec','led_mode','lcd_brightness','lcd_rotation'];const bools=['wifi_hidden','usb_enabled'];
+async function loadSettings(){const c=await json('/api/settings');for(const k of ['wifi_ssid',...numbers])$(k).value=c[k];for(const k of bools)$(k).checked=c[k];}
+$('settingsForm').onsubmit=e=>{e.preventDefault();perform(async()=>{const c={wifi_ssid:$('wifi_ssid').value,wifi_pass:$('wifi_pass').value,current_pin:$('current_pin').value};for(const k of numbers)c[k]=Number($(k).value);for(const k of bools)c[k]=$(k).checked;await json('/api/settings',c);$('current_pin').value=$('wifi_pass').value='';message('Settings saved. Restart when ready. Reconnect using the new Wi-Fi settings after restart.');});};
+$('restartButton').onclick=()=>perform(async()=>{if(!confirm('Restart and lock the vault? Reconnect with your saved Wi-Fi settings.'))return;await json('/api/restart',{});token='';showLocked();message('Restarting. Reconnect to Wi-Fi and reopen 192.168.4.1.');});
+$('pinForm').onsubmit=e=>{e.preventDefault();perform(async()=>{if($('new_pin').value!==$('confirm_pin').value)throw Error('New credentials do not match');await json('/api/change_pin',{old_pin:$('old_pin').value,new_pin:$('new_pin').value});$('pinForm').reset();message('Vault credential changed');});};
+setInterval(status,5000);status();
+</script></html>

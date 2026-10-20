@@ -1,20 +1,16 @@
-# Hardware validation checklist
+# Physical-board validation still required
 
-Do not wire external buttons based on guessed GPIOs.
+Target: Waveshare ESP32-S3-LCD-1.47, without touch input. Retained source pins: LCD MOSI45/SCLK40/CS42/DC41/RST39/backlight48; SD CLK14/CMD15/D0=16/D1=18/D2=17/D3=21; RGB LED38. Verify the exact board revision and schematic. No navigation-button wiring is required.
 
-Before hardware integration, verify from the exact board revision's schematic:
-- LCD SPI pins and reset/backlight pins
-- SD-card SPI/SDMMC pins and card-detect behavior
-- USB D+/D- route and connector
-- onboard BOOT and RESET buttons
-- pins used by onboard peripherals, strapping, flash/PSRAM, and any expansion connector
-- actual supply/logic levels for external buttons
+1. Build in ESP-IDF 5.x, resolve managed components and review warnings. Confirm 16 MB flash, the custom partition table, FAT long filenames, USB CDC and LVGL 9. Keep eFuse/security provisioning disabled.
+2. With expendable FAT32 test media, verify SD mounting and locked startup. Remove the card and verify that the controller stays accessible and reports an unavailable card without formatting anything.
+3. Connect via SoftAP, create a credential, lock, unlock with correct/wrong credentials and power-cycle. Verify Wi-Fi remains available throughout. Verify no hard-coded vault PIN works as a bypass.
+4. Test mobile setup, typed passphrases and the virtual numeric keypad. Test retry delays, refresh/re-authentication and a second browser lacking a token.
+5. Test files of 0, 1, 4095, 4096, 4097 and several megabytes using both transports. Compare SHA-256 of originals and downloads. Verify quoted/Unicode names, listing, deletion and a 256-entry catalog.
+6. Test overlapping Wi-Fi/USB requests, USB disconnect during upload, HTTP interruption and idle lock between USB chunks. Verify no competing operation closes or corrupts an active storage handle. Long HTTP transfers serialize other operations until completion.
+7. Save all settings. Reboot and verify Wi-Fi name/password/channel/hidden state, USB disabled/enabled, LED normal/dim/off, display brightness and rotations. Confirm saved credentials before changing connectivity settings.
+8. Test LCD status and transfer callbacks; check RGB patterns against docs/STATUS_LED.md. Test wrong PIN while already unlocked and verify existing files still decrypt.
+9. On copied test media, corrupt a tag/container length/catalog and verify decryption fails closed. Try incomplete uploads and ensure commit refuses them.
+10. Test power interruption around catalog and credential replacement, including recovery from `.bak` files. Preserve card copies before tests. Check stack watermarks and minimum heap under combined Wi-Fi/LCD/USB load.
 
-Then:
-1. Record board PCB revision and source document version.
-2. Test each proposed button input with a non-destructive GPIO test.
-3. Confirm no boot-strapping conflict at reset.
-4. Confirm USB CDC still enumerates after button wiring.
-5. Confirm SD reads/writes remain reliable.
-6. Test button bounce and stuck-button conditions.
-7. Keep wiring diagram and tested pin map in version control.
+Host tests do not replace these checks. No board was attached during this update.

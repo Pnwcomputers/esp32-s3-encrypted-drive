@@ -24,6 +24,7 @@ static led_strip_handle_t s_strip;
 static portMUX_TYPE s_state_mux = portMUX_INITIALIZER_UNLOCKED;
 static vault_led_state_t s_state = VAULT_LED_LOCKED;
 static uint32_t s_generation;
+static vault_led_mode_t s_mode;
 static bool s_initialized;
 static uint8_t s_last_red = 0xFF, s_last_green = 0xFF, s_last_blue = 0xFF;
 
@@ -155,6 +156,11 @@ static void status_led_task(void *arg)
         vault_led_state_t next_state;
         render_pattern(active_state, elapsed_ms, &red, &green, &blue,
                        &auto_transition, &next_state);
+        portENTER_CRITICAL(&s_state_mux);
+        vault_led_mode_t mode = s_mode;
+        portEXIT_CRITICAL(&s_state_mux);
+        if (mode == VAULT_LED_MODE_STEALTH) red = green = blue = 0;
+        else if (mode == VAULT_LED_MODE_DIM) { red /= 4; green /= 4; blue /= 4; }
         set_rgb(red, green, blue);
 
         if (auto_transition) {
@@ -234,5 +240,11 @@ void vault_status_led_clear_recovery_fault(vault_led_state_t next_state)
         s_state = next_state;
         ++s_generation;
     }
+    portEXIT_CRITICAL(&s_state_mux);
+}
+
+void vault_status_led_set_mode(vault_led_mode_t mode) {
+    portENTER_CRITICAL(&s_state_mux);
+    s_mode = mode;
     portEXIT_CRITICAL(&s_state_mux);
 }

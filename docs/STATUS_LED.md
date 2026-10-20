@@ -7,15 +7,15 @@ The firmware uses Espressif's `led_strip` component and a low-priority, non-bloc
 | State | Indicator | Firmware integration |
 |---|---|---|
 | `VAULT_LED_LOCKED` | Slow blue pulse | Default after reset/startup |
-| `VAULT_LED_PIN_ENTRY` | Steady amber | Current prototype's pairing/PIN prompt |
-| `VAULT_LED_AUTH_SUCCESS` | Brief green, then green breathing | Successful prototype unlock |
-| `VAULT_LED_AUTH_FAILURE` | Two short red flashes, then amber | Rejected prototype PIN |
+| `VAULT_LED_PIN_ENTRY` | Steady amber | PIN-entry feedback |
+| `VAULT_LED_AUTH_SUCCESS` | Brief green, then green breathing | Successful authenticated unlock |
+| `VAULT_LED_AUTH_FAILURE` | Two short red flashes, then amber | Rejected credential |
 | `VAULT_LED_UNLOCKED` | Subtle green breathing | Unlocked state |
-| `VAULT_LED_TRANSFER` | Purple pulse | API is available; call at transfer start when transfer code exists |
-| `VAULT_LED_TRANSFER_COMPLETE` | Brief green, then green breathing | API is available; call after verified transfer completion |
+| `VAULT_LED_TRANSFER` | Purple pulse | Wi-Fi and USB transfer start |
+| `VAULT_LED_TRANSFER_COMPLETE` | Brief green, then green breathing | Wi-Fi and USB transfer completion |
 | `VAULT_LED_RECOVERY_ERROR` | Repeating triple white flash | API is available for recovery/security faults; is latched until `vault_status_led_clear_recovery_fault()` is called |
 
-Example for future transfer handlers:
+Transfer integration example:
 
 ```c
 vault_status_led_set_state(VAULT_LED_TRANSFER);
@@ -25,9 +25,9 @@ vault_status_led_set_state(VAULT_LED_TRANSFER_COMPLETE);
 
 Do not encode PIN digits, secret material, filenames, or detailed failure causes in LED patterns. Security/recovery faults should take precedence over ordinary progress indications; callers must explicitly clear the fault with `vault_status_led_clear_recovery_fault(next_state)` after handling it.
 
-## Important security status
+## Configuration and security status
 
-This LED work does **not** make the current firmware a secure vault. The current `main.c` still contains a hard-coded demo Wi-Fi password and a hard-coded PIN comparison, and it starts a Wi-Fi access point/web server for pairing. That conflicts with the intended offline USB-only vault architecture. Do not put sensitive files on the card or treat the current unlock state as cryptographic protection. Replace the prototype pairing/authentication path with the reviewed physical-button + USB CDC design before real use.
+The browser settings page supports normal, dim and off LED modes. Saved LED mode applies after restart. Off mode suppresses every pattern, including recovery errors. LED patterns supplement the display and are not an authentication boundary. The controller uses persistent Wi-Fi; locking and unlocking are handled through the web page. No physical-button PIN flow is used. See THREAT_MODEL.md for the remaining security limits.
 
 ## Build note
 

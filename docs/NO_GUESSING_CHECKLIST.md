@@ -1,21 +1,12 @@
-# Verification status and unresolved facts
+# Verify before hardware use
 
-This starter is intentionally conservative. The following items are **not yet verified on physical hardware**:
+- Exact Waveshare ESP32-S3-LCD-1.47 board revision, pin map and 16 MB flash.
+- FAT32 card, long filenames and the actual SD interface wiring.
+- ESP-IDF 5.x component versions, build/link result and USB CDC configuration.
+- Display rotation/brightness and GPIO38 RGB colors on the physical board.
+- Persistent SoftAP reachability during lock/unlock and saved Wi-Fi reconnection.
+- Idle lock, interrupted transfers and metadata backup recovery on copied test data.
+- Firmware stack watermarks and available heap with Wi-Fi, LCD and USB active.
+- Security claims against THREAT_MODEL.md; no offline-guess resistance or recovery key is implemented.
 
-- Exact Waveshare board PCB revision and GPIO assignments for the external navigation buttons.
-- Exact ESP-IDF release and component versions that will compile and run this project.
-- LCD driver/controller configuration and working display initialization.
-- 64 GB card filesystem, bus mode, and maximum supported behavior in the chosen driver.
-- USB connector route on the exact board and native USB CDC enumeration on the selected computer.
-- Correct eFuse key-block availability and the selected HMAC key purpose/API for the exact chip revision.
-- Complete cryptographic design, PIN key derivation, recovery wrapper, nonce allocation and anti-rollback.
-- Firmware update and recovery behavior after production security eFuses are set.
-- Cross-platform desktop packaging and USB permissions/drivers.
-
-Before implementation, consult:
-- Official Waveshare board wiki/schematic: https://www.waveshare.com/wiki/ESP32-S3-LCD-1.47
-- ESP-IDF ESP32-S3 USB device documentation: https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/peripherals/usb_device.html
-- ESP-IDF ESP32-S3 Secure Boot v2: https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/security/secure-boot-v2.html
-- ESP-IDF ESP32-S3 security feature enablement workflows: https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/security/security-features-enablement-workflows.html
-
-The Waveshare wiki could not be independently fetched in this research pass (HTTP access denied by the site), so no pin assignments are asserted here. Do not treat earlier generic GPIO statements as a verified wiring plan.
+No physical navigation buttons or touch controls are required. Do not add guessed button GPIO assignments.

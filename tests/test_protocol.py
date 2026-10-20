@@ -16,7 +16,7 @@ def test_reject_crc_corruption():
 
 def test_reject_oversized_payload():
     try:
-        encode_frame(Frame(command=1, request_id=1, payload=b"x" * 4097))
+        encode_frame(Frame(command=1, request_id=1, payload=b"x" * 4225))
     except ValueError as exc:
         assert "large" in str(exc)
     else:

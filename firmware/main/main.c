@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -22,12 +23,14 @@
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
 #include "status_led.h"
+#include "vault_config.h"
+#include "vault_storage.h"
+#include "vault_web.h"
+#include "vault_runtime.h"
+#include "cdc_protocol.h"
+#include "driver/ledc.h"
 
 static const char *TAG = "vault_main";
-
-#define WIFI_SSID      "MyEarPods"
-#define WIFI_PASS      "53cur3ty"
-#define VAULT_PIN      "pin=123456"
 
 // --- WAVESHARE 1.47" HARDWARE PINS ---
 #define LCD_MOSI  45
@@ -48,56 +51,20 @@ static esp_lcd_panel_io_handle_t io_handle = NULL;
 static esp_lcd_panel_handle_t panel_handle = NULL;
 static lv_obj_t *ui_status_label = NULL;
 static lv_obj_t *ui_prompt_label = NULL;
-volatile bool vault_unlocked = false;
-static httpd_handle_t server = NULL;
+static vault_config_t s_boot_cfg;
 
-const char* html_page = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-"<style>body{font-family:sans-serif;text-align:center;background:#f4f4f9;color:#333;margin-top:50px;}"
-"input[type=password]{font-size:2em;width:80%;margin:20px;text-align:center;padding:10px;border-radius:8px;border:1px solid #ccc;}"
-"input[type=submit]{font-size:1.5em;padding:15px 40px;background:#007aff;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;}</style></head>"
-"<body><h2>EarPods Configuration</h2><p>Enter device PIN to connect</p><form action=\"/unlock\" method=\"POST\">"
-"<input type=\"password\" name=\"pin\" inputmode=\"numeric\" placeholder=\"PIN\" autofocus required><br>"
-"<input type=\"submit\" value=\"Connect\"></form></body></html>";
-
-static esp_err_t root_get_handler(httpd_req_t *req) {
-    httpd_resp_set_type(req, "text/html");
-    return httpd_resp_send(req, html_page, HTTPD_RESP_USE_STRLEN);
+static void display_status(const char *status, const char *detail) {
+    lvgl_port_lock(0);
+    lv_label_set_text(ui_status_label, status);
+    lv_label_set_text(ui_prompt_label, detail);
+    lvgl_port_unlock();
 }
 
-static esp_err_t unlock_post_handler(httpd_req_t *req) {
-    char buf[100];
-    int ret, remaining = req->content_len;
-
-    if (remaining >= sizeof(buf)) {
-        httpd_resp_send_500(req);
-        return ESP_FAIL;
-    }
-    ret = httpd_req_recv(req, buf, remaining);
-    if (ret <= 0) return ESP_FAIL;
-    buf[ret] = '\0';
-
-    if (strcmp(buf, VAULT_PIN) == 0) {
-        vault_status_led_set_state(VAULT_LED_AUTH_SUCCESS);
-        vault_unlocked = true;
-        const char* success_resp = "<!DOCTYPE html><html><body style=\"background:#f4f4f9;color:#333;text-align:center;font-family:sans-serif;margin-top:50px;\"><h2>Connected.</h2><p>You may close this page.</p></body></html>";
-        httpd_resp_send(req, success_resp, HTTPD_RESP_USE_STRLEN);
-    } else {
-        vault_status_led_set_state(VAULT_LED_AUTH_FAILURE);
-        const char* fail_resp = "<!DOCTYPE html><html><body style=\"background:#f4f4f9;color:#d9534f;text-align:center;font-family:sans-serif;margin-top:50px;\"><h2>Pairing Failed.</h2><a href=\"/\" style=\"color:#007aff;\">Try Again</a></body></html>";
-        httpd_resp_send(req, fail_resp, HTTPD_RESP_USE_STRLEN);
-    }
-    return ESP_OK;
-}
-
-void start_webserver(void) {
-    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    if (httpd_start(&server, &config) == ESP_OK) {
-        httpd_uri_t root = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler, .user_ctx = NULL };
-        httpd_uri_t unlock = { .uri = "/unlock", .method = HTTP_POST, .handler = unlock_post_handler, .user_ctx = NULL };
-        httpd_register_uri_handler(server, &root);
-        httpd_register_uri_handler(server, &unlock);
-        ESP_LOGI(TAG, "Web server started.");
-    }
+static void usb_progress(const char *op, const char *filename, uint32_t current, uint32_t total) {
+    char detail[192];
+    snprintf(detail, sizeof(detail), "%s\n%lu / %lu chunks", filename,
+             (unsigned long)current, (unsigned long)total);
+    display_status(op, detail);
 }
 
 void wifi_init_softap(void) {
@@ -108,21 +75,19 @@ void wifi_init_softap(void) {
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    wifi_config_t wifi_config = {
-        .ap = {
-            .ssid = WIFI_SSID,
-            .ssid_len = strlen(WIFI_SSID),
-            .channel = 1,
-            .password = WIFI_PASS,
-            .max_connection = 1,
-            .authmode = WIFI_AUTH_WPA2_PSK
-        },
-    };
+    wifi_config_t wifi_config = {0};
+    memcpy(wifi_config.ap.ssid, s_boot_cfg.wifi_ssid, strlen(s_boot_cfg.wifi_ssid));
+    memcpy(wifi_config.ap.password, s_boot_cfg.wifi_pass, strlen(s_boot_cfg.wifi_pass));
+    wifi_config.ap.ssid_len = strlen(s_boot_cfg.wifi_ssid);
+    wifi_config.ap.channel = s_boot_cfg.wifi_channel;
+    wifi_config.ap.ssid_hidden = s_boot_cfg.wifi_hidden;
+    wifi_config.ap.max_connection = 2;
+    wifi_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-    ESP_LOGI(TAG, "Wi-Fi SoftAP active. SSID:%s", WIFI_SSID);
+    ESP_LOGI(TAG, "Wi-Fi SoftAP active. SSID:%s", s_boot_cfg.wifi_ssid);
 }
 
 void init_lcd(void) {
@@ -168,10 +133,20 @@ void init_lcd(void) {
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
-    gpio_set_level(LCD_BL, 1);
+    const ledc_timer_config_t timer = {
+        .speed_mode = LEDC_LOW_SPEED_MODE, .duty_resolution = LEDC_TIMER_10_BIT,
+        .timer_num = LEDC_TIMER_0, .freq_hz = 5000, .clk_cfg = LEDC_AUTO_CLK
+    };
+    const ledc_channel_config_t channel = {
+        .gpio_num = LCD_BL, .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_0, .timer_sel = LEDC_TIMER_0,
+        .duty = (1023U * s_boot_cfg.lcd_brightness) / 100U
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&timer));
+    ESP_ERROR_CHECK(ledc_channel_config(&channel));
 }
 
-void init_sd_card(void) {
+esp_err_t init_sd_card(void) {
     ESP_LOGI(TAG, "Initializing SD Card...");
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
         .format_if_mount_failed = false, .max_files = 5, .allocation_unit_size = 16 * 1024
@@ -189,6 +164,7 @@ void init_sd_card(void) {
     } else {
         ESP_LOGI(TAG, "SD Card mounted successfully.");
     }
+    return ret;
 }
 
 void init_ui(void) {
@@ -199,7 +175,7 @@ void init_ui(void) {
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = io_handle,
         .panel_handle = panel_handle,
-        .buffer_size = 172 * 320,
+        .buffer_size = 172 * 40,
         .double_buffer = false,
         .hres = 172,
         .vres = 320,
@@ -207,18 +183,19 @@ void init_ui(void) {
         .color_format = LV_COLOR_FORMAT_RGB565,
         .flags = { 
             .buff_dma = true,
-            .full_refresh = true
+            .full_refresh = false
         }
     };
     
     lvgl_port_lock(0);
 
     lv_display_t *disp = lvgl_port_add_disp(&disp_cfg);
+    if (!disp) { lvgl_port_unlock(); abort(); }
 
     // 180° rotation setting
-    lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_180);
+    lv_display_set_rotation(disp, (lv_display_rotation_t)(s_boot_cfg.lcd_rotation / 90));
 
-    lv_obj_t *scr = lv_scr_act();
+    lv_obj_t *scr = lv_screen_active();
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), LV_PART_MAIN);
 
     ui_status_label = lv_label_create(scr);
@@ -228,6 +205,7 @@ void init_ui(void) {
 
     ui_prompt_label = lv_label_create(scr);
     lv_label_set_text(ui_prompt_label, "Wi-Fi AP Active:\nMyEarPods\n\nIP Address:\n192.168.4.1");
+    lv_obj_set_width(ui_prompt_label, 156);
     lv_obj_set_style_text_align(ui_prompt_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_color(ui_prompt_label, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
     lv_obj_align(ui_prompt_label, LV_ALIGN_CENTER, 0, 10);
@@ -235,62 +213,41 @@ void init_ui(void) {
     lvgl_port_unlock();
 }
 
-void update_ui_unlocked(void) {
-    lvgl_port_lock(0);
-    lv_label_set_text(ui_status_label, "CONNECTED");
-    lv_obj_set_style_text_color(ui_status_label, lv_color_hex(0x00FF00), LV_PART_MAIN);
-    
-    lv_label_set_text(ui_prompt_label, "USB Data Interface Active");
-    lvgl_port_unlock();
-}
-
-void init_usb_cdc(void) {
-    ESP_LOGI(TAG, "Initializing USB CDC...");
-    const tinyusb_config_t tusb_cfg = TINYUSB_DEFAULT_CONFIG();
-    ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
-
-    tinyusb_config_cdcacm_t acm_cfg = { 0 }; 
-    if (!tinyusb_cdcacm_initialized(TINYUSB_CDC_ACM_0)) {
-        ESP_ERROR_CHECK(tinyusb_cdcacm_init(&acm_cfg));
-    }
-}
-
 void app_main(void) {
     ESP_LOGI(TAG, "Booting ESP32 Vault...");
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-      ESP_ERROR_CHECK(nvs_flash_erase());
-      ret = nvs_flash_init();
-    }
     ESP_ERROR_CHECK(ret);
 
-    /* The LED controller defaults to LOCKED and never blocks the main flow. */
+    ESP_ERROR_CHECK(vault_config_init());
+    vault_config_get(&s_boot_cfg);
+    ESP_ERROR_CHECK(vault_runtime_init());
     (void)vault_status_led_init();
-    vault_status_led_set_state(VAULT_LED_LOCKED);
-
+    vault_status_led_set_mode(s_boot_cfg.led_mode);
     init_lcd();
     init_ui();
-    init_sd_card();
-    
+    bool sd_ok = init_sd_card() == ESP_OK;
+    if (sd_ok) sd_ok = vault_storage_init() == ESP_OK;
+    vault_storage_set_ready(sd_ok);
     wifi_init_softap();
-    start_webserver();
-    vault_status_led_set_state(VAULT_LED_PIN_ENTRY);
+    vault_web_set_display_cb(display_status);
+    ESP_ERROR_CHECK(vault_web_start());
+    cdc_protocol_set_ui_callback(usb_progress);
+    if (s_boot_cfg.usb_enabled) ESP_ERROR_CHECK(cdc_protocol_init());
+    if (!sd_ok) vault_status_led_set_state(VAULT_LED_RECOVERY_ERROR);
+    else vault_status_led_set_state(VAULT_LED_LOCKED);
 
-    while (!vault_unlocked) {
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
-
-    if (server) {
-        httpd_stop(server);
-    }
-    esp_wifi_stop();
-    esp_wifi_deinit();
-
-    update_ui_unlocked();
-    /* AUTH_SUCCESS advances to UNLOCKED in the LED task after its green confirmation. */
-    init_usb_cdc();
-
-    while (1) {
+    for (;;) {
+        vault_runtime_enter();
+        vault_runtime_poll();
+        uint32_t total = 0, free_mb = 0, count = 0;
+        vault_storage_get_stats(&total, &free_mb, &count);
+        char detail[192];
+        snprintf(detail, sizeof(detail), "%s\nhttp://192.168.4.1\n\n%lu / %lu MB free\n%lu files%s",
+                 s_boot_cfg.wifi_ssid, (unsigned long)free_mb,
+                 (unsigned long)total, (unsigned long)count,
+                 sd_ok ? "" : "\nSD card unavailable");
+        display_status(vault_storage_is_unlocked() ? "VAULT UNLOCKED" : "VAULT LOCKED", detail);
+        vault_runtime_leave();
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

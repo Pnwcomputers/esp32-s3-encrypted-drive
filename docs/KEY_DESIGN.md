@@ -1,3 +1,5 @@
+> Design reference: device-held HMAC/recovery features in this document remain future work. Current behavior and limits are defined in README.md and THREAT_MODEL.md.
+
 # Key design (proposal requiring implementation review)
 
 ## Key hierarchy

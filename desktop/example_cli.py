@@ -1,8 +1,11 @@
-\"\"\"Placeholder only. It does not open a serial port or transfer files.\"\"\"
-def main() -> None:
-    print("ESP32 Vault desktop client scaffold")
-    print("USB transport and GUI are not implemented yet.")
-    print("See docs/PROTOCOL.md before implementing device communication.")
+"""Compatibility entry point for the complete vault CLI."""
+try:
+    from desktop.vault_cli import main
+except ModuleNotFoundError:
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from desktop.vault_cli import main
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

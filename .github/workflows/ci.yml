@@ -1,0 +1,32 @@
+name: Vault checks
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  host-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libssl-dev libcjson-dev
+      - name: Python and sanitized firmware regressions
+        run: python tests/run_checks.py
+      - name: Compile Python entry points
+        run: python -m compileall -q desktop tests
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile ESP32-S3 firmware
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.5.5
+          target: esp32s3
+          path: firmware
+          command: idf.py build

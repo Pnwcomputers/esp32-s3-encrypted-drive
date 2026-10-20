@@ -1,19 +1,8 @@
-## IDF Component Manager Manifest File
+# Versions verified by the ESP32-S3 target build. Update deliberately with tests.
 dependencies:
-  ## Required IDF version
   idf:
-    version: '>=5.2.0'
-  # # Put list of dependencies here
-  # # For components maintained by Espressif:
-  # component: "~1.0.0"
-  # # For 3rd party components:
-  # username/component: ">=1.0.0,<2.0.0"
-  # username2/component2:
-  #   version: "~1.0.0"
-  #   # For transient dependencies `public` flag can be set.
-  #   # `public` flag doesn't have an effect dependencies of the `main` component.
-  #   # All dependencies of `main` are public by default.
-  #   public: true
-  espressif/esp_tinyusb: ^2.0.0
-  espressif/esp_lvgl_port: ^2.0.0
-  espressif/led_strip: ^3.0.0
+    version: "5.5.5"
+  espressif/esp_tinyusb: "2.4.0"
+  espressif/esp_lvgl_port: "2.9.0"
+  espressif/led_strip: "3.1.0~1"
+  lvgl/lvgl: "9.6.0~1"

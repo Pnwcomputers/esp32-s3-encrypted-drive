@@ -1,26 +1,15 @@
-# Installation Guide
+# Installation and local build
 
-## System Requirements
+Use the exact Waveshare ESP32-S3-LCD-1.47 and expendable FAT32 media. This source was clean-built for ESP32-S3 with **ESP-IDF 5.5.5**; the manifest and lockfile pin the resolved components. ESP-IDF 6.2 is not the supported build environment for this snapshot.
 
-### Minimum Requirements
-- **Operating System**: Windows 10 (1909) or Windows 11
-- **RAM**: 4 GB minimum, 8 GB recommended
-- **Storage**: 2 GB free space for applications
-- **Network**: Internet connection for WinGet packages
+From an ESP-IDF 5.5.5 terminal:
 
-### Recommended Requirements
-- **RAM**: 16 GB for development workstations
-- **Storage**: SSD for faster deployment
-- **Network**: Broadband connection (10+ Mbps)
+```sh
+cd firmware
+idf.py set-target esp32s3
+idf.py build
+```
 
-## Installation Methods
+On Ubuntu/WSL, `bash tools/build_wsl.sh --clean-config` installs a separate build cache and builds without touching a system ESP-IDF installation. This needs network access on first use. Outputs go to `artifacts/firmware`.
 
-### Method 1: Direct Download
-1. Download the latest release from GitHub
-2. Extract to desired location
-3. Run as Administrator
-
-### Method 2: Git Clone
-```bash
-git clone https://github.com/Pnwcomputers/
-cd 
+The supplied binaries passed compilation/linking, not physical-board validation. Confirm the board revision and flash size, then follow HARDWARE_VALIDATION.md before using important files. See the root README for desktop commands. No eFuse or security-provisioning commands are included.

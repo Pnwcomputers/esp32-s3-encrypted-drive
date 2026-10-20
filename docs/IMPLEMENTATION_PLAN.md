@@ -1,57 +1,17 @@
-# Implementation plan
+# Implementation status and next steps
 
-## Stage 0 — resolve hardware and version facts
+## Integrated in this snapshot
 
-- Obtain the exact board revision and official schematic/pinout.
-- Confirm LCD controller/driver and display library version.
-- Confirm microSD bus mode, pin assignments, supported filesystem and maximum card behavior.
-- Confirm which physical GPIOs are actually available and safe for external buttons.
-- Confirm USB connector/data path and whether the chosen port is native USB-OTG or USB-UART bridge.
-- Pin exact ESP-IDF release and component versions; commit `sdkconfig.defaults` only after a real build.
-- Verify ESP32-S3 silicon revision and eFuse state before security design is finalized.
+- Persistent SoftAP and embedded web controller; no physical navigation input.
+- First-use setup, PIN/passphrase unlock, browser session checks and retry delays.
+- Encrypted chunk storage/catalog, lock, credential rotation, Wi-Fi and USB file operations.
+- NVS-backed settings, idle locking, LCD status, GPIO38 LED normal/dim/off modes.
+- Restored desktop framing/parsers and host regression coverage.
 
-## Stage 1 — development bring-up
+## Next validation gate
 
-- Minimal app boots and reports version over serial.
-- LCD driver, SD mount/unmount, buttons with debounce, USB CDC are individually tested.
-- No real secrets, no irreversible eFuse operations.
+The clean ESP-IDF 5.5.5 build now passes with pinned components. Complete HARDWARE_VALIDATION.md: flash the exact board and verify both transports, storage integrity, all settings and memory use. VALIDATION.md distinguishes host checks from untested hardware behavior.
 
-## Stage 2 — file container
+## Deferred security work
 
-- Define a versioned binary format with explicit endianness, maximum sizes, chunk size, IDs, nonce policy, AAD fields, tag placement, manifest authentication and commit semantics.
-- Unit tests for empty files, maximum file sizes, truncation, reordered/duplicated chunks, corrupt tags, wrong key, power loss and SD full.
-- Ensure no plaintext names or user metadata appear in raw card images.
-
-## Stage 3 — key management
-
-- Write a cryptographic design note before code.
-- Select exact hardware HMAC API and key purpose supported by selected ESP-IDF version.
-- Define PIN KDF and device-secret combination with domain separation and test vectors.
-- Define recovery wrapper independent of the original device secret.
-- Add online retry throttling and anti-rollback strategy.
-- Test power loss during enrollment, PIN change, and recovery rotation.
-
-## Stage 4 — USB protocol
-
-- Framed messages with version, request ID, command, length, and CRC for accidental corruption detection. CRC is not authentication.
-- Strict parser, maximum lengths, timeouts, duplicate request behavior, state machine and authorization rules.
-- Locked state only allows status and limited diagnostics.
-- Host sends plaintext file data to the device for encryption; device sends plaintext only after successful authentication and unlock.
-- No command accepts a key export request.
-
-## Stage 5 — desktop application
-
-- Python + PySide6 UI; pyserial transport.
-- Explicit serial-port selection and device identity display.
-- Upload/download with temporary files and atomic rename on host.
-- Never log file contents, PIN, recovery secret, or key material.
-- Package/test on Windows, macOS, Linux; document permissions/driver requirements.
-
-## Stage 6 — security review and production provisioning
-
-- Threat-model review, code review, fuzz the frame parser, run crypto known-answer tests.
-- Verify signed update and rollback policy.
-- Follow the exact ESP-IDF release's Secure Boot v2 + flash encryption enablement order and eFuse constraints.
-- Use a spare board for rehearsals. Never test first-time eFuse provisioning on the only device.
-- Keep an auditable provisioning record that contains no secret key material.
-- Do not call the product secure until the implemented design has been tested and reviewed.
+Device-bound key derivation and stronger KDF/version migration; separate recovery wrapping; HTTPS or another authenticated transport; persistent attempt limits; nonce management; signed updates/Secure Boot/flash encryption after review; anti-rollback and power-failure stress testing. FIDO security-key enrollment is not implemented. No eFuse provisioning is included.

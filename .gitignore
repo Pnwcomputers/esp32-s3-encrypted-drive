@@ -11,3 +11,5 @@ venv/
 *.bin
 secrets/
 provisioning-output/
+
+artifacts/

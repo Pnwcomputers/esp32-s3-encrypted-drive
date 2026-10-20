@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esp_err.h"
+#include "vault_config.h"
 
 typedef enum {
     VAULT_LED_LOCKED = 0,
@@ -23,3 +24,5 @@ void vault_status_led_set_state(vault_led_state_t state);
 
 /* Explicitly clear a latched recovery/security fault after it has been handled. */
 void vault_status_led_clear_recovery_fault(vault_led_state_t next_state);
+
+void vault_status_led_set_mode(vault_led_mode_t mode);
