@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/THREAT_MODEL.md`, `docs/CODE_REVIEW.md`)
 
 ### Fixed
+- **Enabled the board's 8 MB octal PSRAM** (`sdkconfig.defaults`) and allocate the USB
+  drive's ~32 KB working set from it (`vault_drive.c`, runtime `heap_caps_calloc`, with
+  an internal fallback — nothing static). Previously PSRAM was off, so the whole stack
+  (Wi-Fi + LCD + USB + HTTP) competed for ~512 KB internal SRAM and the drive-state
+  allocation failed under pressure, making **Enable SD card drive** always report
+  "USB drive could not be opened." Confirmed fixed on hardware: the volume now mounts
+  in Windows as a FAT32 drive ("ESP32 VAULT", ~57.8 GB). The drive capacity is still
+  measured dynamically from the card's free space.
 - CDC RX path now applies brief backpressure and logs an overflow instead of silently
   dropping received bytes when the worker falls behind (`cdc_protocol.c`). (Review L-4)
 - `nvs_flash_init()` recovers from a blank/unformatted or version-changed NVS

@@ -2,6 +2,9 @@
 #include "vault_storage.h"
 #include "vault_crypto.h"
 #include "esp_vfs_fat.h"
+#ifdef ESP_PLATFORM
+#include "esp_heap_caps.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -164,7 +167,21 @@ static void initial_block(uint32_t block,uint8_t *p) {
 }
 esp_err_t vault_drive_open(const uint8_t key[32],bool create) {
     if(!key || s || (create && vault_drive_exists())) return ESP_ERR_INVALID_STATE;
-    s=calloc(1,sizeof(*s));if(!s)return ESP_ERR_NO_MEM;memcpy(s_key,key,32);
+    /* Allocate the ~32 KB working set at runtime, preferring the 8 MB PSRAM so it
+     * does not fail under internal-RAM pressure; fall back to internal RAM if
+     * PSRAM is unavailable. Nothing here is statically sized. */
+#ifdef ESP_PLATFORM
+    s=heap_caps_calloc(1,sizeof(*s),MALLOC_CAP_SPIRAM);
+    if(!s) {
+        s=heap_caps_calloc(1,sizeof(*s),MALLOC_CAP_8BIT);
+    }
+#else
+    s=calloc(1,sizeof(*s));
+#endif
+    if(!s) {
+        return ESP_ERR_NO_MEM;
+    }
+    memcpy(s_key,key,32);
     if(create) {
         uint64_t total,free_bytes;
         if(esp_vfs_fat_info(VAULT_MOUNT_POINT,&total,&free_bytes)!=ESP_OK)goto fail;
