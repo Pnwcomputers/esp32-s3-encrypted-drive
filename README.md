@@ -1,23 +1,102 @@
-# ESP32-S3 encrypted vault drive
+# 🔐 ESP32-S3 Encrypted Vault Drive
+## *Self-Hosted, Air-Gapped Encrypted USB Storage for the Waveshare ESP32-S3-LCD-1.47*
 
-Development firmware for the **Waveshare ESP32-S3-LCD-1.47**, with a self-hosted Wi-Fi controller, encrypted microSD storage exposed as a USB drive, USB CDC desktop tools, LCD status and GPIO38 RGB status LED. No buttons or touch input are required.
+![Platform](https://img.shields.io/badge/Platform-ESP32--S3-E7352C)
+![Framework](https://img.shields.io/badge/ESP--IDF-5.5.5-blue)
+![UI](https://img.shields.io/badge/LVGL-9-blueviolet)
+![Encryption](https://img.shields.io/badge/Encryption-AES--256--GCM-green)
+![KDF](https://img.shields.io/badge/KDF-PBKDF2--HMAC--SHA256-green)
+![Status](https://img.shields.io/badge/Status-Development%20Build-orange)
+![GitHub issues](https://img.shields.io/github/issues/Pnwcomputers/esp32-s3-encrypted-drive)
+![Maintenance](https://img.shields.io/badge/Maintained-Yes-green)
 
-This snapshot integrates the firmware modules and browser configuration. **The ESP-IDF 5.5.5 target build and host regressions pass. Phone setup and encrypted USB-serial file round trips pass on the physical board. Normal USB-drive access has been added and is undergoing hardware validation.** Use test data until hardware validation and security review are complete.
+### **A microSD vault that only unlocks over its own private Wi-Fi — then appears as a normal encrypted USB drive**
 
-## Use the device
+Development firmware for the **Waveshare ESP32-S3-LCD-1.47** (USB-A thumb-drive form factor) that turns a plain microSD card into an encrypted vault. The card holds only AES-256-GCM ciphertext. The device hosts its own Wi-Fi access point and web portal; after you unlock there, the ESP32 exposes the decrypted volume to the host computer as a real USB drive, decrypting and encrypting every block on the fly. No router, no internet, no buttons, no touch input.
 
-1. Insert a FAT32 microSD card and power the device over USB. Failed SD mounts never automatically format the card.
-2. Connect your phone or computer to **MyEarPods**, password **53cur3ty** (factory defaults).
-3. Open **http://192.168.4.1**. On first use, create and confirm a PIN or passphrase of 6–63 UTF-8 bytes. On later boots, enter the existing credential.
-4. Press **Enable SD card drive** once, then use **ESP32 VAULT** in File Explorer. It uses nearly all currently free microSD capacity; user files are not stored in the ESP32 flash. **Safely eject in Windows before locking. Automatic locking waits while the drive is connected.** See [USB drive behavior and limits](docs/USB_DRIVE.md). Older phone/client files are preserved in their separate file area and can be downloaded/deleted after eject.
-5. Open **Device settings** to change Wi-Fi name/password/channel, hidden SSID, idle lock, USB access, LED mode, screen brightness and screen rotation. Enter the current vault credential to save. Restart from the page to apply network, USB and display changes; reconnect using the new Wi-Fi credentials.
-6. Change the vault PIN/passphrase separately using the old credential and confirmation. This rewraps the data key without rewriting file contents.
+> ⚠️ **This is a development build for disposable test data.** The ESP-IDF 5.5.5 target build is clean, the host regression suite passes, and the encrypted USB drive has been verified creating, mounting (FAT32), reading and writing on real Windows. Device-bound keys, authenticated transport, Secure Boot/flash encryption and an independent security review are **not** done — see [Security Model & Limits](#️-security-model--limits).
 
-The device uses ESP32 **SoftAP** mode, often referred to in this project as “ad-hoc Wi-Fi.” It needs no router or internet access. The application assets are embedded in firmware. A browser unlock issues a random session token held only in that page's memory. Refreshing the page requires unlocking again; a new unlock replaces the previous browser token. USB access follows the device's global lock state.
+---
 
-## Build and desktop tools
+## 📌 Project Status
 
-Use ESP-IDF 5.5.5 (the manifest pins the verified framework and component versions). From an ESP-IDF terminal:
+| Area | State |
+|------|-------|
+| ESP-IDF 5.5.5 target build & link | ✅ Clean (no warnings) |
+| Host regression suite (ASan/UBSan) | ✅ 17 Python + native firmware + encrypted-drive checks pass |
+| Phone/web setup, unlock, credential rotation | ✅ Verified on hardware |
+| Encrypted USB-serial (CDC) file round-trips | ✅ Verified on hardware (0 B … 64 KiB, SHA-256 match) |
+| **Encrypted USB drive (MSC) on Windows** | ✅ Create + mount (FAT32) + read/write/delete verified |
+| On-device durability: eject/remount, power-cycle, long transfers, max catalog | ⏳ Needs further exercise |
+| Device-bound keys, HTTPS, Secure Boot, signed updates, security review | ❌ Deferred ([roadmap](#-roadmap-reliability--security)) |
+
+<details>
+<summary>🐛 Recently fixed</summary>
+
+| # | Area | Issue | Fix |
+|---|------|-------|-----|
+| 1 | `sdkconfig.defaults`, `vault_drive.c` | 8 MB PSRAM was disabled, so the whole stack (Wi-Fi + LVGL + TinyUSB + HTTP) competed for ~512 KB internal SRAM and the USB drive's ~32 KB working allocation failed — **Enable SD card drive** always reported *"USB drive could not be opened."* | Enabled octal PSRAM and allocate the drive state from it at runtime (internal fallback; nothing static). Drive now mounts in Windows as a 57.8 GB FAT32 volume. |
+| 2 | `vault_web.c` (L-1) | Current & new credentials left un-zeroed on `change_pin` error paths. | Scrub credentials and request body on **every** exit path. |
+| 3 | `cdc_protocol.c` (L-4) | Unchecked `xRingbufferSend` could silently drop received bytes under backpressure. | Apply brief backpressure and log overflow instead of a silent drop. |
+| 4 | `main.c` (S-1) | `nvs_flash_init()` aborted boot on a blank/version-changed NVS. | Erase-once-and-retry so a fresh chip recovers. |
+| 5 | `desktop/` (L-2, L-3) | CLI crashed on malformed device responses; download didn't bind the returned `file_id` to the request. | Graceful error handling + skip bad `ls` records; verify the device returned the requested file. |
+
+A full multi-dimension code + security review is in [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md).
+
+</details>
+
+---
+
+## ✨ Key Features
+
+- **🔐 Encrypted at rest** — AES-256-GCM protects every file chunk and the catalog; a random data key is wrapped with PBKDF2-HMAC-SHA256. A removed card is just ciphertext.
+- **📶 Self-hosted unlock** — The device runs its own WPA2 SoftAP and embedded web portal at `http://192.168.4.1`. No router or internet required; app assets are baked into firmware.
+- **💾 Real encrypted USB drive** — While unlocked, the microSD is exposed to the host as a FAT32 USB Mass Storage drive ("ESP32 VAULT"). The ESP32 decrypts on read and encrypts on write, block by block; the host never sees raw card sectors.
+- **🔌 USB CDC file protocol + desktop tools** — A second interface offers a framed, CRC-checked file-transfer protocol with a Python CLI and GUI.
+- **🖥️ LCD status + RGB LED** — ST7789 1.47″ LCD status screen (LVGL 9) and a GPIO38 WS2812 status LED (normal / dim / off).
+- **🔒 Lock discipline** — Idle auto-lock, lock-on-eject, and credential rotation that rewraps the data key **without** rewriting file contents. Session keys are zeroed on lock.
+- **🧱 Durable writes** — Each host write commits an authenticated redo-journal entry (then segment, map and root) with flush/`fsync` before acknowledging, plus `.tmp`/`.bak` atomic replacement.
+- **🧪 Verifiable** — Host regression suite under AddressSanitizer/UBSan and a reproducible, isolated WSL target build.
+- **🚫 No buttons or touch** — Everything is driven over Wi-Fi and USB.
+
+## 🧩 How It Works
+
+1. **Boot / pairing** — The device initializes the LCD, mounts the FAT32 microSD (never auto-formatting on failure), and brings up the `MyEarPods` SoftAP + web portal.
+2. **Authenticate** — You connect to the AP and open `http://192.168.4.1`. First use creates a PIN/passphrase (6–63 UTF-8 bytes); later boots ask for it. Unlock derives the key that unwraps the random data key.
+3. **Access** — Once unlocked, the vault is globally unlocked: press **Enable SD card drive** and the host sees the decrypted FAT32 volume. A browser session token (held only in the page) gates further web actions.
+4. **Lock** — Safely eject in Windows, then lock (or let idle auto-lock fire). Keys and caches are wiped; the USB medium disappears.
+
+## 🔌 Hardware & Pinout
+
+Target: **Waveshare ESP32-S3-LCD-1.47** (no touch), 16 MB flash, 8 MB embedded octal PSRAM. **Confirm your exact board revision and schematic before flashing — do not apply these pins to another similarly named model.**
+
+| Interface | Signal | GPIO |
+|-----------|--------|------|
+| **ST7789 LCD** | MOSI / SCLK / CS / DC / RST / BL | 45 / 40 / 42 / 41 / 39 / 48 |
+| **microSD (SDMMC 4-bit)** | CLK / CMD / D0 / D1 / D2 / D3 | 14 / 15 / 16 / 18 / 17 / 21 |
+| **RGB status LED (WS2812)** | DIN | 38 |
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- 💻 Waveshare ESP32-S3-LCD-1.47 board (16 MB flash, 8 MB PSRAM)
+- 💾 A **FAT32** microSD card (disposable test data only)
+- 🧰 ESP-IDF **5.5.5** (the manifest pins the verified framework and component versions)
+- 🔌 USB-C cable + host computer
+
+### Use the Device
+
+1. **💾 Insert a FAT32 microSD and power the device over USB.** Failed SD mounts never auto-format the card.
+2. **📶 Connect to `MyEarPods`**, password `53cur3ty` *(factory defaults — **change these in Device settings before trusting the device**; the default password is compiled into the firmware and identical on every un-reconfigured unit)*.
+3. **🔓 Open `http://192.168.4.1`.** On first use, create and confirm a PIN or passphrase (6–63 UTF-8 bytes). On later boots, enter the existing credential.
+4. **🟢 Press "Enable SD card drive"** once, then use **ESP32 VAULT** in File Explorer. It uses nearly all currently free microSD capacity; user files are never stored in ESP32 flash. **Safely eject in Windows before locking** — automatic locking waits while the drive is connected. See [USB drive behavior & limits](docs/USB_DRIVE.md).
+5. **⚙️ Open Device settings** to change Wi-Fi name/password/channel, hidden SSID, idle lock, USB access, LED mode, screen brightness and rotation. Enter the current credential to save, then **Restart** from the page to apply network/USB/display changes.
+6. **🔑 Change the PIN/passphrase** separately using the old credential plus confirmation. This rewraps the data key without rewriting file contents.
+
+### Build & Flash
+
+From an ESP-IDF 5.5.5 terminal:
 
 ```sh
 cd firmware
@@ -26,9 +105,20 @@ idf.py build
 idf.py -p YOUR_PORT flash monitor
 ```
 
-The defaults select the supplied board's 16 MB flash, custom partition table, long FAT filenames and USB CDC. The committed dependency lockfile records the resolved `esp_tinyusb`, `esp_lvgl_port`, LVGL 9 and `led_strip` versions. Existing `sdkconfig` files can override defaults; check `idf.py menuconfig` when upgrading. Confirm the physical board/revision before flashing. Do not apply these pins to another similarly named model.
+The defaults select 16 MB flash, the custom partition table, long FAT filenames, USB CDC + MSC, and the board's octal PSRAM. The committed lockfile pins `esp_tinyusb`, `esp_lvgl_port`, LVGL 9 and `led_strip`.
 
-From the repository root, install `desktop/requirements.txt`, then use:
+**Isolated / reproducible build (no system ESP-IDF needed):**
+
+```sh
+bash tools/build_wsl.sh            # downloads pinned ESP-IDF + compiler to /var/tmp on first run
+bash tools/build_wsl.sh --clean-config   # verify the committed sdkconfig defaults
+```
+
+Outputs are copied to `artifacts/firmware/`. This helper builds **without** flashing.
+
+### Desktop Tools (USB CDC)
+
+From the repository root, install `desktop/requirements.txt`, then:
 
 ```sh
 python -m desktop.vault_cli ports
@@ -40,28 +130,119 @@ python -m desktop.vault_cli lock
 python -m desktop.vault_gui
 ```
 
-Unlock through Wi-Fi before USB file operations. This is a file-transfer protocol, **not a USB Mass Storage device or an Explorer drive letter**. The firmware supports up to 256 records, 127 UTF-8 bytes per filename, and 4 GiB minus 1 byte per file; practical transfers are smaller. Browser downloads buffer the file in browser memory.
+Unlock through Wi-Fi before USB file operations. The CDC path is a **file-transfer protocol**, not a drive letter (that's the MSC drive above). It supports up to 256 records, 127 UTF-8 bytes per filename, and 4 GiB − 1 byte per file; practical transfers are smaller.
 
-## Verification
+## 🧪 Verification
 
 ```sh
 python tests/run_checks.py
-# Windows without GCC/OpenSSL: desktop checks only
+# Windows without GCC/OpenSSL (desktop checks only):
 python tests/run_checks.py --python-only
 ```
 
-The runner executes 17 Python regression functions and a C regression executable containing the actual firmware web, configuration, runtime and storage code. The Linux host harness requires GCC, OpenSSL development headers and libcjson. It substitutes host crypto/HTTP/NVS/FreeRTOS adapters; it does not test mbedTLS or ESP32 drivers. AddressSanitizer and UndefinedBehaviorSanitizer are enabled. In a restricted process environment where LeakSanitizer cannot inspect `/proc`, run `ASAN_OPTIONS=detect_leaks=0 python tests/run_checks.py` to retain address/undefined checks without leak detection.
+The runner executes 17 Python regression functions plus a C regression executable built from the actual firmware web/config/runtime/storage/drive code. The Linux host harness needs GCC, OpenSSL dev headers and libcjson; it substitutes host crypto/HTTP/NVS/FreeRTOS adapters (it does **not** exercise mbedTLS or ESP32 drivers). AddressSanitizer and UndefinedBehaviorSanitizer are enabled. In restricted environments where LeakSanitizer can't read `/proc`, run `ASAN_OPTIONS=detect_leaks=0 python tests/run_checks.py`.
 
-See [validation results](docs/VALIDATION.md), [configuration](docs/CONFIGURATION.md), [security limits](docs/THREAT_MODEL.md) and [next hardware checks](docs/HARDWARE_VALIDATION.md).
+See [validation results](docs/VALIDATION.md), [configuration](docs/CONFIGURATION.md), [security limits](docs/THREAT_MODEL.md), [protocol](docs/PROTOCOL.md) and [next hardware checks](docs/HARDWARE_VALIDATION.md).
 
-## Security limits
+## 🗂️ Project Structure
 
-- AES-256-GCM protects chunks and the catalog; PBKDF2-HMAC-SHA256 (10,000 rounds, preserved format) wraps the random data key. A short numeric PIN remains vulnerable to **offline guessing from a copied card**. No device-bound eFuse secret or recovery-key wrapper is implemented.
-- Names and timestamps are encrypted in the catalog, but raw container headers, file counts, file lengths, allocation and access patterns remain observable. Nonces are random 96-bit values, not a counter with a mathematical uniqueness guarantee.
-- The controller uses **HTTP over WPA2**, not HTTPS. The factory Wi-Fi password (`53cur3ty`) is **compiled into the firmware and identical on every un-reconfigured device**, so it provides no confidentiality until you change it in Device settings — do so before trusting the device. Anyone with USB access can operate the vault while it is globally unlocked. Browser tokens restrict web access; they do not make USB private to one computer.
-- Retry delays are RAM-only and reset on power cycling. Settings are stored in NVS without enabling flash encryption. Secure Boot, flash encryption, FIDO security keys and credential recovery are not implemented.
-- File replacement uses checked writes, flush/sync and a recoverable backup rename sequence. This is not a filesystem journal or a guarantee against arbitrary SD corruption and power loss. No anti-rollback protection exists.
+```text
+esp32-s3-encrypted-drive/
+├── firmware/
+│   ├── main/
+│   │   ├── main.c                 # Boot, LCD/LVGL, SoftAP, task wiring
+│   │   ├── vault_crypto.*         # AES-256-GCM + PBKDF2 wrappers
+│   │   ├── vault_storage.*        # Catalog/index, key wrap, file chunks
+│   │   ├── vault_drive.*          # Encrypted USB block device + redo journal
+│   │   ├── vault_msc.*            # TinyUSB Mass Storage callbacks
+│   │   ├── vault_web.*            # HTTP portal + REST API
+│   │   ├── vault_index.html       # Embedded web UI
+│   │   ├── cdc_protocol.*         # USB CDC file-transfer protocol
+│   │   ├── vault_config.*         # NVS-backed settings
+│   │   ├── vault_runtime.*        # Serialization gate + idle lock
+│   │   └── status_led.*           # GPIO38 WS2812 status LED
+│   ├── partitions.csv             # Custom 16 MB partition table
+│   ├── sdkconfig.defaults         # Pinned build config (incl. PSRAM)
+│   └── dependencies.lock          # Resolved component versions
+├── desktop/                       # Python CLI + GUI + protocol
+├── tests/                         # Python + native (ASan/UBSan) regressions
+├── tools/build_wsl.sh             # Reproducible isolated target build
+├── docs/                          # Threat model, protocol, validation, etc.
+└── artifacts/                     # Build outputs (gitignored)
+```
 
-No eFuses are programmed by this project.
+## 🛡️ Security Model & Limits
 
-For an isolated Ubuntu/WSL target build, run `bash tools/build_wsl.sh`. The first run downloads the official ESP-IDF sources and compiler into `/var/tmp/esp32-vault-toolchain`; subsequent runs reuse them. Outputs are copied to `artifacts/firmware`. Use `--clean-config` to verify the committed defaults. This helper builds without flashing.
+**What it protects:** data at rest on a removed/copied card, and host access gated behind web unlock. **What it does not (yet):**
+
+- 🔑 A short numeric PIN is vulnerable to **offline guessing from a copied card** — PBKDF2 is 10,000 rounds and there is **no device-bound eFuse secret** or recovery-key wrapper.
+- 🌐 The controller uses **HTTP over WPA2, not HTTPS**. The factory Wi-Fi password (`53cur3ty`) is compiled into the firmware and identical across un-reconfigured devices — **change it before trusting the device.** Anyone with USB access can operate the vault while it is globally unlocked.
+- 🕵️ Names and timestamps are encrypted in the catalog, but raw container headers, file counts, lengths, allocation and access patterns remain observable. Nonces are random 96-bit values, not a counter with a uniqueness guarantee.
+- 🚦 Retry delays are RAM-only and reset on power cycle. Settings live in NVS **without flash encryption**. Secure Boot, flash encryption, signed updates, FIDO keys and credential recovery are **not** implemented.
+- 🧱 File replacement uses checked writes, flush/sync and a recoverable backup-rename sequence — not a full filesystem journal or a guarantee against arbitrary SD corruption/power loss. There is **no anti-rollback** protection.
+
+**No eFuses are programmed by this project.** Full details in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+
+## 🔮 Roadmap: Reliability & Security
+
+### 🧱 Reliability
+
+- **⚡ USB write throughput** — A verified 512 KB write currently takes ~40 s (~13 KB/s) because every 4 KB block does encrypt + redo-journal + `fsync` + segment + root update. Planned: batch/coalesce the journal, relax per-block `fsync` with a safe flush cadence, and/or larger write granularity — a durability-vs-speed trade-off made configurable.
+- **🧯 Power-loss hardening** — Move beyond backup-rename recovery toward a true transactional/journaled guarantee across arbitrary SD power loss, with stress tests around catalog, credential and volume-root replacement.
+- **🔁 In-web volume recovery** — A deliberate "reset/recreate USB volume" action so a stale or undecryptable header can never dead-end the drive without pulling the card.
+- **📏 Capacity reclaim/resize** — Grow or reclaim USB-drive capacity after deleting legacy files (currently fixed at creation time).
+- **🧪 Expanded on-device validation** — Eject/remount and power-cycle persistence on Windows, maximum (256-entry) catalogs, multi-megabyte transfers, and stack-watermark/minimum-heap measurement under combined Wi-Fi + LCD + USB load.
+- **🔌 Transport robustness** — Harden overlapping Wi-Fi/USB operations, USB disconnect mid-transfer, and idle-lock interactions with in-flight writes.
+
+### 🔒 Security
+
+- **🔑 Per-device Wi-Fi credentials** — Replace the shared factory PSK with a random per-device password shown on the LCD (or force a change during provisioning before the portal accepts unlock).
+- **🧬 Device-bound key derivation** — Mix an eFuse-held device secret into the KDF so a copied card is not offline-guessable, and gate reads to the physical device.
+- **🧮 Stronger / upgradable KDF** — Higher PBKDF2 cost or a memory-hard function (e.g. Argon2), with versioned on-card format migration.
+- **🌐 Authenticated transport** — HTTPS/TLS (or an equivalent authenticated channel) for the portal instead of HTTP-over-WPA2, plus hardened session-token handling.
+- **🚦 Persistent anti-brute-force** — Attempt counters and lockout that survive power cycles, not RAM-only backoff.
+- **🧊 Platform hardening** — Secure Boot, flash encryption for NVS/settings, and signed OTA updates — enabled only after review and with documented recovery.
+- **🔙 Anti-rollback** — Monotonic version/nonce counters to resist restoring an older valid card image, and a defined nonce-allocation policy.
+- **🗝️ Recovery & 2FA** — An independent recovery-key wrapper and optional FIDO/WebAuthn security-key enrollment.
+- **🕵️ Metadata minimization** — Reduce observable file counts/lengths/allocation patterns where feasible.
+- **🔎 Independent security review** — A third-party audit before any non-disposable use.
+
+## 🤝 Contributing
+
+Contributions are welcome:
+
+- **📖 Documentation** — Clarify the README, expand the threat model, add validation evidence
+- **🐛 Bug Reports** — Open an issue with hardware revision, logs, and reproduction steps
+- **💡 Feature Requests** — Open an issue with a `[FEATURE]` tag and the use case
+- **🔒 Security Issues** — Email [support@pnwcomputers.com](mailto:support@pnwcomputers.com) with a proof of concept and allow reasonable disclosure time
+
+## 📄 License
+
+Development firmware for evaluation and disposable test data. See the repository for current license terms (add a `LICENSE` file to finalize), or contact [support@pnwcomputers.com](mailto:support@pnwcomputers.com).
+
+## 📞 Support & Contact
+
+- 📖 **Documentation**: this README and the [`docs/`](docs/) folder
+- 🐛 **Bug Reports**: open an issue on GitHub
+- 💡 **Feature Requests**: open an issue with a `[FEATURE]` tag
+- 💬 **General Support**: [support@pnwcomputers.com](mailto:support@pnwcomputers.com)
+
+---
+
+## 📊 Statistics
+
+![GitHub stars](https://img.shields.io/github/stars/Pnwcomputers/esp32-s3-encrypted-drive)
+![GitHub forks](https://img.shields.io/github/forks/Pnwcomputers/esp32-s3-encrypted-drive)
+![GitHub issues](https://img.shields.io/github/issues/Pnwcomputers/esp32-s3-encrypted-drive)
+![GitHub last commit](https://img.shields.io/github/last-commit/Pnwcomputers/esp32-s3-encrypted-drive)
+
+**🔐 Your files, encrypted on the card — unlocked only from your pocket, over a network no one else is on.**
+
+Built with ❤️ for privacy, reliability, and hardware you control.
+
+[⭐ Star this repo](https://github.com/Pnwcomputers/esp32-s3-encrypted-drive) if it's useful!
+
+---
+
+*Updated October 2026*
+*Tested on the Waveshare ESP32-S3-LCD-1.47 (rev 0.2 — 8 MB PSRAM, 16 MB flash). Development build; use disposable test data until hardware validation and a security review are complete.*
