@@ -1,96 +1,102 @@
-# Contributing to DeployWorkstation
+# 🤝 Contributing to ESP32-S3 Encrypted Vault Drive
 
-Thank you for your interest in contributing to DeployWorkstation! This document provides guidelines and information for contributors.
+Thanks for your interest in contributing! This is **security-sensitive embedded firmware** (ESP-IDF/C) plus a Python desktop client. This guide covers how to build, test, and submit changes.
+
+> ⚠️ This is a development build for disposable test data. Treat anything touching crypto, authentication, storage format, or lock state with extra care — see [`docs/THREAT_MODEL.md`](../docs/THREAT_MODEL.md) and [`docs/CODE_REVIEW.md`](../docs/CODE_REVIEW.md).
 
 ## 🎯 Ways to Contribute
 
 ### 🐛 Bug Reports
 - Use the bug report template
-- Include system information and logs
-- Provide clear reproduction steps
+- Include your **exact board revision**, ESP-IDF version, and microSD details
+- Attach the serial/`idf.py monitor` log and clear reproduction steps
 
 ### 💡 Feature Requests
-- Use the feature request template
-- Explain the use case and business value
-- Consider implementation complexity
+- Use the feature request template; tag the title with `[FEATURE]`
+- Describe the use case and the security/reliability impact
+- Check the [Roadmap](../README.md#-roadmap-reliability--security) first — it may already be planned
 
 ### 🔧 Code Contributions
-- Fork the repository
-- Create a feature branch
-- Follow PowerShell best practices
-- Add tests for new functionality
-- Update documentation
+- Fork, branch, keep the host test suite green, and update docs
+- Match the surrounding code style (the firmware is deliberately compact C)
+- Keep the desktop `protocol.py` wire format in sync with the firmware and [`docs/PROTOCOL.md`](../docs/PROTOCOL.md)
 
 ### 📖 Documentation
-- Improve README clarity
-- Add configuration examples
-- Create troubleshooting guides
-- Fix typos and formatting
+- Clarify the README/docs, add validation evidence, fix typos
+- Don't overstate security posture — keep claims aligned with what's actually verified
 
-## 🔄 Development Process
+## 🧰 Development Environment
 
-### Setting Up Development Environment
-1. Fork the repository
-2. Clone your fork locally
-3. Create a feature branch: `git checkout -b feature/your-feature-name`
-4. Make your changes
-5. Test thoroughly on multiple Windows versions
-6. Commit with clear messages
-7. Push to your fork
-8. Create a pull request
+**Firmware** (ESP-IDF **5.5.5**, target `esp32s3`):
 
-### PowerShell Style Guidelines
-- Use approved verbs for function names
-- Follow PascalCase for functions and variables
-- Use meaningful variable names
-- Include comment-based help for functions
-- Handle errors gracefully
-- Use Write-Log for consistent logging
+```sh
+cd firmware
+idf.py set-target esp32s3
+idf.py build
+idf.py -p YOUR_PORT flash monitor
+```
 
-### Testing Requirements
-- Test on Windows 10 and 11
-- Test both domain and workgroup environments
-- Verify offline functionality
-- Check with different hardware configurations
+Or build in an isolated, reproducible toolchain without touching a system ESP-IDF:
 
-## 📋 Code Review Process
+```sh
+bash tools/build_wsl.sh               # first run downloads pinned ESP-IDF + compiler
+bash tools/build_wsl.sh --clean-config  # verify the committed sdkconfig defaults
+```
 
-1. **Automated Checks**: PR must pass all automated tests
-2. **Manual Review**: Maintainer reviews code and functionality
-3. **Testing**: Changes tested in real deployment scenarios
-4. **Documentation**: Ensure documentation is updated
-5. **Approval**: Maintainer approves and merges PR
+**Desktop client** (Python): install `desktop/requirements.txt`, then run `python -m desktop.vault_cli ...`.
+
+## ✅ Testing Requirements
+
+Run the regression suite before opening a PR:
+
+```sh
+python tests/run_checks.py              # Python + native (ASan/UBSan) firmware checks
+python tests/run_checks.py --python-only  # desktop checks only (no GCC/OpenSSL needed)
+```
+
+- The native harness needs **GCC, OpenSSL dev headers, and libcjson**, and runs the real firmware web/config/runtime/storage/drive code under AddressSanitizer + UndefinedBehaviorSanitizer.
+- **New firmware logic should keep the host suite green and add coverage** where the host adapters allow (crypto/HTTP/NVS/FreeRTOS are substituted; mbedTLS and ESP32 drivers are not exercised).
+- A clean `idf.py build` / `tools/build_wsl.sh` (no warnings — `-Werror` is on) is required.
+- Changes that affect hardware behavior should note what was verified on a physical board vs. host-only.
+
+## 🔒 Security-Sensitive Code — Please Keep In Mind
+
+- **Fail closed.** Decryption/authentication failures must not degrade to fail-open. Preserve AAD binding and tag checks.
+- **Scrub secrets.** Zero PIN/passphrase buffers and key material on every exit path (`vault_secure_zero`).
+- **No hard-coded credentials or bypasses.** The only unlock path is the PIN/passphrase that unwraps the random data key.
+- **Don't weaken durability.** Keep the redo-journal + atomic `.tmp`/`.bak` replacement semantics intact.
+- **No casual eFuse / Secure Boot / flash-encryption changes.** These are irreversible on hardware — propose them as reviewed, opt-in changes.
+
+## 🔄 Pull Request Flow
+
+1. Fork and clone your fork
+2. Branch: `git checkout -b feature/your-feature-name`
+3. Make changes; build clean and keep tests green
+4. Commit with clear messages (see below)
+5. Push and open a PR using the template
+6. A maintainer reviews correctness, security impact, and docs before merge
 
 ## 🏷️ Commit Message Format
 
-## Use conventional commits format:
-Examples:
+Conventional-commits style:
+
+```text
 type(scope): description
-feat(installer): add support for custom MSI packages
-fix(logging): resolve log file permission issues
-docs(readme): update installation instructions
-test(core): add unit tests for bloatware removal
 
-## 🔒 Security Issues
+feat(drive): coalesce redo-journal writes to speed up USB writes
+fix(web): scrub change_pin buffers on all error paths
+docs(readme): add reliability & security roadmap
+test(storage): add truncated-catalog regression
+```
 
-For security-related issues:
-1. **DO NOT** open a public issue
-2. Email security@pnwcomputers.com
-3. Include proof of concept (if safe)
-4. Allow reasonable time for response
+## 🛡️ Security Issues
+
+**Do not open a public issue for vulnerabilities.** Email **[support@pnwcomputers.com](mailto:support@pnwcomputers.com)** with a proof of concept (if safe) and allow reasonable time for a fix before disclosure.
 
 ## 📞 Getting Help
 
-- Check existing issues and documentation
-- Join discussions in GitHub Discussions
-- Email support@pnwcomputers.com for questions
+- Check existing issues and the [`docs/`](../docs/) folder
+- Open a GitHub issue or discussion
+- Email **[support@pnwcomputers.com](mailto:support@pnwcomputers.com)**
 
-## 🙏 Recognition
-
-Contributors will be recognized in:
-- CHANGELOG.md for significant contributions
-- README.md for major features
-- GitHub contributors page
-
-Thank you for helping make DeployWorkstation better!
-EOF
+Thank you for helping make this project better and safer! 🙏
