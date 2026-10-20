@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 # 🔐 ESP32-S3 Encrypted Vault Drive *via MicroSD Card*
-=======
-# 🔐 ESP32-S3 Encrypted Vault Drive
->>>>>>> 626e6174eaaef2d01034e7f7d244b3b48c6816ea
 ## *Self-Hosted, Air-Gapped Encrypted USB Storage for the Waveshare ESP32-S3-LCD-1.47*
 
 ![Platform](https://img.shields.io/badge/Platform-ESP32--S3-E7352C)
@@ -15,27 +11,22 @@
 ![Maintenance](https://img.shields.io/badge/Maintained-Yes-green)
 
 ### **A microSD vault that only unlocks over its own private Wi-Fi — then appears as a normal encrypted USB drive**
-<<<<<<< HEAD
 
 Development firmware for the **Waveshare ESP32-S3-LCD-1.47** (USB-A thumb-drive form factor) that turns a plain microSD card into an encrypted vault. The card holds only AES-256-GCM ciphertext. The device hosts its own Wi-Fi access point and web portal; after you unlock there, the ESP32 exposes the decrypted volume to the host computer as a real USB drive, decrypting and encrypting every block on the fly. No router, no internet, no buttons, no touch input.
 
 > ⚠️ **This is a development build for disposable test data.** The ESP-IDF 5.5.5 target build is clean, the host regression suite passes, and the encrypted USB drive has been verified creating, mounting (FAT32), reading and writing on real Windows. Device-bound keys, authenticated transport, Secure Boot/flash encryption and an independent security review are **not** done — see the **Security Model & Limits** section below.
-=======
+
 Development firmware for the **Waveshare ESP32-S3-LCD-1.47** (USB-A thumb-drive form factor) that turns a plain microSD card into an encrypted vault. The card holds only AES-256-GCM ciphertext. The device hosts its own Wi-Fi access point and web portal; after you unlock there, the ESP32 exposes the decrypted volume to the host computer as a real USB drive, decrypting and encrypting every block on the fly. No router, no internet, no buttons, no touch input.
 
 ---
 
 ## How To Use The Device
 > ⚠️ **This is a development build for disposable test data.** The ESP-IDF 5.5.5 target build is clean, the host regression suite passes, and the encrypted USB drive has been verified creating, mounting (FAT32), reading and writing on real Windows. Device-bound keys, authenticated transport, Secure Boot/flash encryption and an independent security review are **not** done — see [Security Model & Limits](#️-security-model--limits).
->>>>>>> 626e6174eaaef2d01034e7f7d244b3b48c6816ea
 
 ---
 
 ## 📌 Project Status
-<<<<<<< HEAD
-=======
 ## Build & Desktop Tools
->>>>>>> 626e6174eaaef2d01034e7f7d244b3b48c6816ea
 
 | Area | State |
 |------|-------|
@@ -161,13 +152,13 @@ The runner executes 17 Python regression functions plus a C regression executabl
 
 See [validation results](docs/VALIDATION.md), [configuration](docs/CONFIGURATION.md), [security limits](docs/THREAT_MODEL.md), [protocol](docs/PROTOCOL.md) and [next hardware checks](docs/HARDWARE_VALIDATION.md).
 
-<<<<<<< HEAD
+
 ## 🗂️ Project Structure
-=======
+
 
 ## 🗂️ Project Structure
 ## Security Limits
->>>>>>> 626e6174eaaef2d01034e7f7d244b3b48c6816ea
+
 
 ```text
 esp32-s3-encrypted-drive/
