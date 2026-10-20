@@ -15,7 +15,7 @@ This snapshot integrates the firmware modules and browser configuration. **The E
 
 The device uses ESP32 **SoftAP** mode, often referred to in this project as “ad-hoc Wi-Fi.” It needs no router or internet access. The application assets are embedded in firmware. A browser unlock issues a random session token held only in that page's memory. Refreshing the page requires unlocking again; a new unlock replaces the previous browser token. USB access follows the device's global lock state.
 
-## Build and Desktop Tools
+## Build & Desktop Tools
 
 Use ESP-IDF 5.5.5 (the manifest pins the verified framework and component versions). From an ESP-IDF terminal:
 
