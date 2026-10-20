@@ -1,9 +1,9 @@
-<<<<<<< HEAD
+
 # 🔐 ESP32-S3 Encrypted Vault Drive
 ## *Self-Hosted, Air-Gapped Encrypted USB Storage for the Waveshare ESP32-S3-LCD-1.47*
 =======
 # ESP32-S3 Encrypted Vault Drive *via MicroSD Card*
->>>>>>> 921c43c7c2e3a5812a682ee48fc9238d64c9fe3e
+
 
 ![Platform](https://img.shields.io/badge/Platform-ESP32--S3-E7352C)
 ![Framework](https://img.shields.io/badge/ESP--IDF-5.5.5-blue)
@@ -16,21 +16,17 @@
 
 ### **A microSD vault that only unlocks over its own private Wi-Fi — then appears as a normal encrypted USB drive**
 
-<<<<<<< HEAD
 Development firmware for the **Waveshare ESP32-S3-LCD-1.47** (USB-A thumb-drive form factor) that turns a plain microSD card into an encrypted vault. The card holds only AES-256-GCM ciphertext. The device hosts its own Wi-Fi access point and web portal; after you unlock there, the ESP32 exposes the decrypted volume to the host computer as a real USB drive, decrypting and encrypting every block on the fly. No router, no internet, no buttons, no touch input.
 =======
-## How To Use The Device
->>>>>>> 921c43c7c2e3a5812a682ee48fc9238d64c9fe3e
 
+## How To Use The Device
 > ⚠️ **This is a development build for disposable test data.** The ESP-IDF 5.5.5 target build is clean, the host regression suite passes, and the encrypted USB drive has been verified creating, mounting (FAT32), reading and writing on real Windows. Device-bound keys, authenticated transport, Secure Boot/flash encryption and an independent security review are **not** done — see [Security Model & Limits](#️-security-model--limits).
 
 ---
 
-<<<<<<< HEAD
 ## 📌 Project Status
 =======
 ## Build & Desktop Tools
->>>>>>> 921c43c7c2e3a5812a682ee48fc9238d64c9fe3e
 
 | Area | State |
 |------|-------|
@@ -156,11 +152,10 @@ The runner executes 17 Python regression functions plus a C regression executabl
 
 See [validation results](docs/VALIDATION.md), [configuration](docs/CONFIGURATION.md), [security limits](docs/THREAT_MODEL.md), [protocol](docs/PROTOCOL.md) and [next hardware checks](docs/HARDWARE_VALIDATION.md).
 
-<<<<<<< HEAD
+
 ## 🗂️ Project Structure
 =======
 ## Security Limits
->>>>>>> 921c43c7c2e3a5812a682ee48fc9238d64c9fe3e
 
 ```text
 esp32-s3-encrypted-drive/
