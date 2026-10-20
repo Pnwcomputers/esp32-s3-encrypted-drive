@@ -231,8 +231,7 @@ Contributions are welcome — see [`.github/CONTRIBUTING.md`](.github/CONTRIBUTI
 - **🔒 Security Issues** — Email [support@pnwcomputers.com](mailto:support@pnwcomputers.com) with a proof of concept and allow reasonable disclosure time
 
 ## 📄 License
-
-Development firmware for evaluation and disposable test data. See the repository for current license terms (add a `LICENSE` file to finalize), or contact [support@pnwcomputers.com](mailto:support@pnwcomputers.com).
+Development firmware for evaluation and disposable test data. See the repository for current license terms, or contact [support@pnwcomputers.com](mailto:support@pnwcomputers.com).
 
 ## 📞 Support & Contact
 
