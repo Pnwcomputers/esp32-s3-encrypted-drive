@@ -186,6 +186,11 @@ def main() -> int:
     except VaultException as e:
         print(f"\nVault Error: {e}")
         return 1
+    except ValueError as e:
+        # Malformed/garbled device response (e.g. bad UTF-8 or a length mismatch
+        # from the parsers) — report cleanly instead of dumping a traceback.
+        print(f"\nVault Error: malformed device response ({e})")
+        return 1
     except KeyboardInterrupt:
         print("\nOperation cancelled by user.")
         return 130

@@ -149,15 +149,24 @@ def parse_list_files_response(payload):
             raise ValueError('Truncated filename length')
         n, = struct.unpack_from('<H', payload, offset)
         offset += 2
+        # The length fields must stay sane: a bad length desynchronises every
+        # following record, so that still fails the whole listing closed.
         if not 0 < n < 128 or offset + n + 32 > len(payload):
             raise ValueError('Invalid file record length')
-        name = payload[offset:offset+n].decode('utf-8')
-        _name(name)
-        offset += n
-        size, modified = struct.unpack_from('<QQ', payload, offset)
-        offset += 16
-        files.append(FileInfo(name, size, modified, payload[offset:offset+16]))
-        offset += 16
+        raw = payload[offset:offset+n]
+        size, modified = struct.unpack_from('<QQ', payload, offset + n)
+        file_id = payload[offset+n+16:offset+n+32]
+        offset += n + 32
+        # A single record whose name is not valid UTF-8 or violates the name
+        # rules is skipped rather than aborting the entire listing. Upload-time
+        # validation means such a record implies corruption/desync, not a normal
+        # file, so dropping just that entry is the least-surprising behaviour.
+        try:
+            name = raw.decode('utf-8')
+            _name(name)
+        except ValueError:
+            continue
+        files.append(FileInfo(name, size, modified, file_id))
     _exact(payload, offset)
     return payload[0], files
 

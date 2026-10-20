@@ -440,7 +440,13 @@ static void cdc_rx_callback(int itf, cdcacm_event_t *event) {
     uint8_t temp[512];
     size_t rx_size = 0;
     while (tinyusb_cdcacm_read(itf, temp, sizeof(temp), &rx_size) == ESP_OK && rx_size > 0) {
-        xRingbufferSend(s_rx_ringbuf, temp, rx_size, 0);
+        /* Apply brief backpressure instead of a 0-tick send: if the worker has
+         * fallen behind, a non-blocking send would silently drop this chunk and
+         * truncate a frame. Wait up to 20 ms for space; only if still full do we
+         * drop (the frame CRC check then rejects it and the host retries). */
+        if (xRingbufferSend(s_rx_ringbuf, temp, rx_size, pdMS_TO_TICKS(20)) != pdTRUE) {
+            ESP_LOGW(TAG, "RX ringbuffer full; dropped %u bytes (host should retry)", (unsigned)rx_size);
+        }
     }
 }
 

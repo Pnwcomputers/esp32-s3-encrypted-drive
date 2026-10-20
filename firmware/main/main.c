@@ -216,6 +216,12 @@ void init_ui(void) {
 void app_main(void) {
     ESP_LOGI(TAG, "Booting ESP32 Vault...");
     esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        /* Fresh/unformatted or version-changed NVS: reformat once and retry so a
+         * first boot on a blank chip recovers instead of aborting. */
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
     ESP_ERROR_CHECK(ret);
 
     ESP_ERROR_CHECK(vault_config_init());

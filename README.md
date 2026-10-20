@@ -58,7 +58,7 @@ See [validation results](docs/VALIDATION.md), [configuration](docs/CONFIGURATION
 
 - AES-256-GCM protects chunks and the catalog; PBKDF2-HMAC-SHA256 (10,000 rounds, preserved format) wraps the random data key. A short numeric PIN remains vulnerable to **offline guessing from a copied card**. No device-bound eFuse secret or recovery-key wrapper is implemented.
 - Names and timestamps are encrypted in the catalog, but raw container headers, file counts, file lengths, allocation and access patterns remain observable. Nonces are random 96-bit values, not a counter with a mathematical uniqueness guarantee.
-- The controller uses **HTTP over WPA2**, not HTTPS. Change the public factory Wi-Fi password. Anyone with USB access can operate the vault while it is globally unlocked. Browser tokens restrict web access; they do not make USB private to one computer.
+- The controller uses **HTTP over WPA2**, not HTTPS. The factory Wi-Fi password (`53cur3ty`) is **compiled into the firmware and identical on every un-reconfigured device**, so it provides no confidentiality until you change it in Device settings — do so before trusting the device. Anyone with USB access can operate the vault while it is globally unlocked. Browser tokens restrict web access; they do not make USB private to one computer.
 - Retry delays are RAM-only and reset on power cycling. Settings are stored in NVS without enabling flash encryption. Secure Boot, flash encryption, FIDO security keys and credential recovery are not implemented.
 - File replacement uses checked writes, flush/sync and a recoverable backup rename sequence. This is not a filesystem journal or a guarantee against arbitrary SD corruption and power loss. No anti-rollback protection exists.
 

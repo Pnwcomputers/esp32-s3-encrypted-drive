@@ -259,6 +259,11 @@ class VaultClient:
             self._check_status(resp.payload[0], "Download begin failed")
         status, file_id, total_size, chunk_size, total_chunks = parse_download_begin_response(resp.payload)
         self._check_status(status, "Download begin failed")
+        # Bind the response to the request: the device must open the exact file we
+        # asked for. A divergent id implies a firmware bug or session mix-up; refuse
+        # rather than silently writing the wrong file to the user's destination.
+        if isinstance(file_id_or_name, (bytes, bytearray)) and bytes(file_id) != bytes(file_id_or_name):
+            raise VaultException('Device opened a different file than requested')
 
         # 2. Fetch chunks
         fd, temporary = tempfile.mkstemp(prefix='.vault-', suffix='.part', dir=dest.parent)

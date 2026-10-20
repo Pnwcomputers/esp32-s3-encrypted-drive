@@ -461,20 +461,22 @@ static esp_err_t api_change_pin_handler(httpd_req_t *req) {
     extract_json_str(buf, "old_pin", old_pin, sizeof(old_pin));
     extract_json_str(buf, "new_pin", new_pin, sizeof(new_pin));
 
+    /* Scrub the submitted credentials and raw body on every exit path, not just
+     * on success, so plaintext PIN bytes do not linger on the task stack. */
+    esp_err_t resp;
     if (strlen(new_pin) < 6 || strlen(new_pin) > 63) {
-        return httpd_resp_send(req, "{\"success\":false,\"error\":\"New PIN cannot be empty\"}", HTTPD_RESP_USE_STRLEN);
+        resp = httpd_resp_send(req, "{\"success\":false,\"error\":\"New PIN cannot be empty\"}", HTTPD_RESP_USE_STRLEN);
+    } else if (!check_credential(old_pin)) {
+        resp = json_error(req, "403 Forbidden", "Credential rejected or retry delay active");
+    } else if (vault_storage_change_pin(old_pin, new_pin) == ESP_OK) {
+        resp = httpd_resp_send(req, "{\"success\":true}", HTTPD_RESP_USE_STRLEN);
+    } else {
+        resp = httpd_resp_send(req, "{\"success\":false,\"error\":\"Old PIN incorrect\"}", HTTPD_RESP_USE_STRLEN);
     }
-
-    if (!check_credential(old_pin)) return json_error(req, "403 Forbidden", "Credential rejected or retry delay active");
-    esp_err_t err = vault_storage_change_pin(old_pin, new_pin);
     vault_secure_zero(old_pin, sizeof(old_pin));
     vault_secure_zero(new_pin, sizeof(new_pin));
     vault_secure_zero(buf, sizeof(buf));
-    if (err == ESP_OK) {
-        return httpd_resp_send(req, "{\"success\":true}", HTTPD_RESP_USE_STRLEN);
-    } else {
-        return httpd_resp_send(req, "{\"success\":false,\"error\":\"Old PIN incorrect\"}", HTTPD_RESP_USE_STRLEN);
-    }
+    return resp;
 }
 
 static esp_err_t api_settings_get(httpd_req_t *req) {
@@ -496,10 +498,13 @@ static esp_err_t api_settings_post(httpd_req_t *req) {
     cJSON *o = cJSON_Parse(body);
     vault_secure_zero(body, sizeof(body));
     if (!cJSON_IsObject(o)) { cJSON_Delete(o); return json_error(req, "400 Bad Request", "Invalid JSON"); }
-    const cJSON *credential = cJSON_GetObjectItemCaseSensitive(o, "current_pin");
+    cJSON *credential = cJSON_GetObjectItemCaseSensitive(o, "current_pin");
     if (!cJSON_IsString(credential) || !check_credential(credential->valuestring)) {
         cJSON_Delete(o); return json_error(req, "403 Forbidden", "Credential rejected or retry delay active");
     }
+    /* The credential is verified; scrub its plaintext copy inside the parsed JSON
+     * now rather than leaving it for cJSON_Delete (which frees without zeroing). */
+    vault_secure_zero(credential->valuestring, strlen(credential->valuestring));
     vault_config_t cfg; vault_config_get(&cfg);
     bool valid = true;
     cJSON *v;
