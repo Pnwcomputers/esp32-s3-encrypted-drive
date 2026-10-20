@@ -17,7 +17,7 @@ This repository intentionally does not burn eFuses, enable Secure Boot, enable f
 
 - `firmware/`: minimal ESP-IDF application scaffold
 - `desktop/`: protocol specification and Python host skeleton
-- `docs/`: threat model, key design, provisioning/recovery, hardware validation
+- `docs/`: threat model, key design, provisioning/recovery, hardware validation, RGB status LED behavior
 - `tests/`: initial host-side protocol-format tests
 - `tools/`: no destructive provisioning commands are included
 
@@ -38,4 +38,4 @@ This repository intentionally does not burn eFuses, enable Secure Boot, enable f
 
 The firmware skeleton uses standard ESP-IDF project conventions but is not claimed to compile against every ESP-IDF release or to drive this board's display. Pin the exact ESP-IDF version and board revision before hardware integration.
 
-See `docs/IMPLEMENTATION_PLAN.md` and `docs/NO_GUESSING_CHECKLIST.md`.
+See `docs/IMPLEMENTATION_PLAN.md`, `docs/NO_GUESSING_CHECKLIST.md`, and `docs/STATUS_LED.md`. The onboard RGB LED controller is now scaffolded, but transfer/recovery events must be wired into future handlers. The current Wi-Fi/PIN pairing code is still a prototype and is not safe for real vault data.

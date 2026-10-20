@@ -21,6 +21,7 @@
 #include "tinyusb_cdc_acm.h"
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
+#include "status_led.h"
 
 static const char *TAG = "vault_main";
 
@@ -76,10 +77,12 @@ static esp_err_t unlock_post_handler(httpd_req_t *req) {
     buf[ret] = '\0';
 
     if (strcmp(buf, VAULT_PIN) == 0) {
+        vault_status_led_set_state(VAULT_LED_AUTH_SUCCESS);
         vault_unlocked = true;
         const char* success_resp = "<!DOCTYPE html><html><body style=\"background:#f4f4f9;color:#333;text-align:center;font-family:sans-serif;margin-top:50px;\"><h2>Connected.</h2><p>You may close this page.</p></body></html>";
         httpd_resp_send(req, success_resp, HTTPD_RESP_USE_STRLEN);
     } else {
+        vault_status_led_set_state(VAULT_LED_AUTH_FAILURE);
         const char* fail_resp = "<!DOCTYPE html><html><body style=\"background:#f4f4f9;color:#d9534f;text-align:center;font-family:sans-serif;margin-top:50px;\"><h2>Pairing Failed.</h2><a href=\"/\" style=\"color:#007aff;\">Try Again</a></body></html>";
         httpd_resp_send(req, fail_resp, HTTPD_RESP_USE_STRLEN);
     }
@@ -261,12 +264,17 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
 
+    /* The LED controller defaults to LOCKED and never blocks the main flow. */
+    (void)vault_status_led_init();
+    vault_status_led_set_state(VAULT_LED_LOCKED);
+
     init_lcd();
     init_ui();
     init_sd_card();
     
     wifi_init_softap();
     start_webserver();
+    vault_status_led_set_state(VAULT_LED_PIN_ENTRY);
 
     while (!vault_unlocked) {
         vTaskDelay(pdMS_TO_TICKS(500));
@@ -279,6 +287,7 @@ void app_main(void) {
     esp_wifi_deinit();
 
     update_ui_unlocked();
+    /* AUTH_SUCCESS advances to UNLOCKED in the LED task after its green confirmation. */
     init_usb_cdc();
 
     while (1) {

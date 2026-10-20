@@ -15,3 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Planned
 - 
+
+## Unreleased
+
+- Added a non-blocking WS2812 RGB status LED controller for the Waveshare ESP32-S3-LCD-1.47 onboard LED (GPIO38).
+- Wired locked, PIN-entry, authentication success/failure, and unlocked states into the current prototype flow. Added transfer and recovery/error states for future handlers.
+- Documented board-revision assumptions and the remaining insecure Wi-Fi/hard-coded PIN prototype path.
