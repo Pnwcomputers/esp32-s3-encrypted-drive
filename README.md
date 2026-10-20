@@ -21,7 +21,6 @@ Development firmware for the **Waveshare ESP32-S3-LCD-1.47** (USB-A thumb-drive 
 ---
 
 ## 📌 Project Status
-=======
 ## Build & Desktop Tools
 
 | Area | State |
@@ -150,7 +149,6 @@ See [validation results](docs/VALIDATION.md), [configuration](docs/CONFIGURATION
 
 
 ## 🗂️ Project Structure
-=======
 ## Security Limits
 
 ```text
