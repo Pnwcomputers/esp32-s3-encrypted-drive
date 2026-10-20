@@ -1,0 +1,81 @@
+# SD card access from the USB host
+
+The microSD card supplies the storage. The ESP32 supplies USB Mass Storage,
+credential checks and encryption; user files are not stored in its internal flash.
+USB CDC remains available as a second interface for status/legacy tooling.
+
+## Use
+
+1. Unlock through the phone page at `http://192.168.4.1`.
+2. On first use, press **Enable SD card drive**. This creates a FAT32 volume
+   using approximately 97% of the card's currently free space. The difference
+   covers authenticated block records, allocation maps, filesystem overhead and
+   working space. Existing phone/client files are preserved. No physical SD
+   reformat is performed. The volume has a 2 TiB implementation ceiling.
+3. Open **ESP32 VAULT** in File Explorer and use normal file/folder operations.
+   The host sees plaintext while unlocked; the SD backing files are encrypted.
+   FAT32 limits an individual file to less than 4 GiB.
+4. Right-click the drive in Windows and choose **Eject**, then lock through the
+   phone page. Automatic locking waits while the USB drive is exported, because
+   Windows can retain filesystem writes in its cache. Read/write activity also
+   counts as activity. Eject resumes the configured idle-lock behavior.
+5. Unlocking reconnects an existing volume. After eject, **Reconnect SD card
+   drive** makes the medium available again; Windows may require reconnecting
+   the USB cable if it removed the entire USB device.
+
+While locked the MSC device reports no medium and rejects block reads/writes.
+It does not expose ciphertext as a mountable disk. Never accept a Windows format
+prompt as a troubleshooting shortcut; it would replace the logical filesystem.
+
+The older phone/desktop file area is separate. After eject, existing files can
+be downloaded/deleted there. Once USB-drive capacity is assigned, new uploads to
+that older area are disabled so they cannot consume capacity promised to the
+host. Add new files through File Explorer. The physical SD backing filesystem
+must not be modified externally.
+
+## Storage layout
+
+`/sdcard/vault/usb-drive.hdr` contains an authenticated encrypted volume root:
+geometry and a bitmap of created backing segments. The FAT32 filesystem is a
+logical block device; its initial boot sectors, FATs and root directory are
+synthesized until written. Each segment covers 64 MiB of logical space and uses
+`usb-NNNNN.enc` on the SD card. Segment files remain below FAT32's file-size
+limit. Blocks and segment allocation maps use AES-256-GCM with fresh random
+96-bit IVs and 128-bit tags. AAD binds volume UUID, segment and block number;
+the allocation map has a separate reserved block identity.
+
+Authenticated allocation maps distinguish an untouched block from a missing or
+corrupted stored block. Untouched blocks return the initial FAT32 contents;
+missing or corrupt allocated data returns an I/O error and closes the medium.
+Session keys, decrypted roots/maps and the one-block plaintext cache are erased
+on locking/eject. Credential rotation keeps the same data key, preserving drive
+contents.
+
+Each write first commits an authenticated redo transaction to `usb-drive.txn`,
+then updates its segment data/map and volume root, then removes the journal.
+Writes flush and fsync before MSC reports success. A complete journal replays
+on the next unlock, including after an interrupted primary-header update.
+Incomplete transaction `.tmp` files are not replayed. Corrupt committed
+transactions fail closed. No automatic reformat occurs on any read/auth error.
+
+This improves logical write recovery; it does not guarantee the physical SD's
+FAT metadata or controller behavior across arbitrary power loss. The format has
+no anti-replay counter. Restoring an older valid card image can restore older
+data. Capacity is calculated at creation, not expanded automatically after
+deleting old phone/client files. Speed will be lower than a native SD reader
+because each host write includes encryption and durable journal updates.
+
+## USB integration
+
+The pinned esp_tinyusb 2.4.0 descriptors provide CDC + MSC. Its default physical
+storage adapter is deliberately excluded in the application CMake file, and
+`vault_msc.c` supplies the callbacks/ownership hooks. Configuration fails if
+the expected pinned component source layout changes. The physical SD remains
+mounted only inside the application; MSC never receives raw physical SD sectors.
+All web, CDC, MSC and idle-lock operations share the runtime gate. Legacy file
+operations, settings changes, restart and manual locking are blocked until USB
+eject. Status polling and SCSI readiness polling do not extend an idle session.
+
+The drive remains a development feature until real Windows create/read/write,
+eject, unlock/remount and power-cycle tests have passed. See VALIDATION.md for
+the current evidence.

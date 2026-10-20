@@ -1,15 +1,15 @@
 # ESP32-S3 encrypted vault drive
 
-Development firmware for the **Waveshare ESP32-S3-LCD-1.47**, with a self-hosted Wi-Fi controller, encrypted microSD storage, optional USB CDC desktop access, LCD status and GPIO38 RGB status LED. No buttons or touch input are required.
+Development firmware for the **Waveshare ESP32-S3-LCD-1.47**, with a self-hosted Wi-Fi controller, encrypted microSD storage exposed as a USB drive, USB CDC desktop tools, LCD status and GPIO38 RGB status LED. No buttons or touch input are required.
 
-This snapshot integrates the previously disconnected firmware modules and completes browser configuration. **The ESP-IDF 5.5.5 target build and host regressions pass; the physical board is not yet verified.** Use test data until hardware validation and security review are complete.
+This snapshot integrates the firmware modules and browser configuration. **The ESP-IDF 5.5.5 target build and host regressions pass. Phone setup and encrypted USB-serial file round trips pass on the physical board. Normal USB-drive access has been added and is undergoing hardware validation.** Use test data until hardware validation and security review are complete.
 
 ## Use the device
 
 1. Insert a FAT32 microSD card and power the device over USB. Failed SD mounts never automatically format the card.
 2. Connect your phone or computer to **MyEarPods**, password **53cur3ty** (factory defaults).
 3. Open **http://192.168.4.1**. On first use, create and confirm a PIN or passphrase of 6–63 UTF-8 bytes. On later boots, enter the existing credential.
-4. Upload, list, download or delete files, or lock the vault. Wi-Fi and the web controller remain available after locking and unlocking.
+4. Press **Enable SD card drive** once, then use **ESP32 VAULT** in File Explorer. It uses nearly all currently free microSD capacity; user files are not stored in the ESP32 flash. **Safely eject in Windows before locking. Automatic locking waits while the drive is connected.** See [USB drive behavior and limits](docs/USB_DRIVE.md). Older phone/client files are preserved in their separate file area and can be downloaded/deleted after eject.
 5. Open **Device settings** to change Wi-Fi name/password/channel, hidden SSID, idle lock, USB access, LED mode, screen brightness and screen rotation. Enter the current vault credential to save. Restart from the page to apply network, USB and display changes; reconnect using the new Wi-Fi credentials.
 6. Change the vault PIN/passphrase separately using the old credential and confirmation. This rewraps the data key without rewriting file contents.
 

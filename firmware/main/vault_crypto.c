@@ -51,6 +51,11 @@ esp_err_t vault_crypto_aes_gcm_encrypt(const uint8_t *key,
         return ESP_ERR_INVALID_ARG;
     }
 
+    /* ESP-IDF's accelerated GCM update requires non-null buffers even for an
+     * empty message. Keep length zero so only the AAD and tag are processed. */
+    uint8_t empty = 0;
+    if (length == 0) input = output = &empty;
+
     mbedtls_gcm_context gcm_ctx;
     mbedtls_gcm_init(&gcm_ctx);
 
@@ -86,6 +91,9 @@ esp_err_t vault_crypto_aes_gcm_decrypt(const uint8_t *key,
     if (!key || !iv || !tag || (length > 0 && (!input || !output))) {
         return ESP_ERR_INVALID_ARG;
     }
+
+    uint8_t empty = 0;
+    if (length == 0) input = output = &empty;
 
     mbedtls_gcm_context gcm_ctx;
     mbedtls_gcm_init(&gcm_ctx);

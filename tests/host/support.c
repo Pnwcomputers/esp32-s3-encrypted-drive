@@ -17,6 +17,8 @@ static unsigned char blob[512]; static size_t blob_len;
 int64_t esp_timer_get_time(void) { return host_time; }
 void esp_restart(void) {}
 void vTaskDelay(unsigned n) { (void)n; }
+void vTaskDelete(void *t) { (void)t; }
+bool tud_msc_set_sense(uint8_t lun,uint8_t key,uint8_t asc,uint8_t ascq) { return true; }
 int xTaskCreate(void (*fn)(void*), const char *n, unsigned s, void *a, unsigned p, void *h) { return 1; }
 SemaphoreHandle_t xSemaphoreCreateMutex(void) { return (void *)1; }
 int xSemaphoreTake(SemaphoreHandle_t m, unsigned n) { return 1; }

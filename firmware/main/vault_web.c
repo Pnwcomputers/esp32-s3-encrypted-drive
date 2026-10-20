@@ -9,6 +9,8 @@
 #include "status_led.h"
 #include "vault_config.h"
 #include "vault_runtime.h"
+#include "vault_drive.h"
+#include "vault_msc.h"
 #include "cJSON.h"
 #include "esp_timer.h"
 #include "esp_system.h"
@@ -120,12 +122,16 @@ static esp_err_t api_status_handler(httpd_req_t *req) {
     bool unlocked = authenticated(req);
     bool prov = vault_storage_is_provisioned();
 
-    char resp[256];
+    char resp[512];
     snprintf(resp, sizeof(resp),
-             "{\"provisioned\":%s,\"unlocked\":%s,\"total_mb\":%u,\"free_mb\":%u,\"used_mb\":%u,\"file_count\":%u}",
+             "{\"provisioned\":%s,\"unlocked\":%s,\"total_mb\":%u,\"free_mb\":%u,\"used_mb\":%u,\"file_count\":%u,\"usb_drive_exists\":%s,\"usb_drive_ready\":%s,\"usb_drive_creating\":%s,\"usb_drive_mb\":%lu}",
              prov ? "true" : "false",
              unlocked ? "true" : "false",
-             (unsigned int)total_mb, (unsigned int)free_mb, (unsigned int)used_mb, (unsigned int)file_count);
+             (unsigned int)total_mb, (unsigned int)free_mb, (unsigned int)used_mb, (unsigned int)file_count,
+             unlocked && vault_drive_exists()?"true":"false",
+             unlocked && vault_msc_exported()?"true":"false",
+             unlocked && vault_msc_busy()?"true":"false",
+             unlocked?(unsigned long)((uint64_t)vault_drive_sector_count()*512/(1024*1024)):0UL);
 
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
@@ -141,10 +147,19 @@ static esp_err_t api_unlock_handler(httpd_req_t *req) {
         return httpd_resp_send(req, "{\"success\":false,\"error\":\"Missing PIN\"}", HTTPD_RESP_USE_STRLEN);
     }
 
-    if (!vault_storage_is_ready()) return json_error(req, "503 Service Unavailable", "SD card unavailable");
-    if (esp_timer_get_time() < s_next_auth) return json_error(req, "429 Too Many Requests", "Wait before trying again");
+    bool creating = !vault_storage_is_provisioned();
+    const char *validation_error = NULL;
+    if (!vault_storage_is_ready()) validation_error = "SD card unavailable";
+    else if (creating && (strlen(pin) < 6 || strlen(pin) > 63))
+        validation_error = "New credential must contain 6–63 UTF-8 bytes";
+    if (validation_error || esp_timer_get_time() < s_next_auth) {
+        vault_secure_zero(pin, sizeof(pin));
+        vault_secure_zero(buf, sizeof(buf));
+        if (validation_error) return json_error(req, "400 Bad Request", validation_error);
+        return json_error(req, "429 Too Many Requests", "Wait before trying again");
+    }
     esp_err_t err;
-    if (!vault_storage_is_provisioned()) {
+    if (creating) {
         err = vault_storage_create(pin);
     } else {
         err = vault_storage_unlock(pin);
@@ -154,6 +169,7 @@ static esp_err_t api_unlock_handler(httpd_req_t *req) {
     vault_secure_zero(buf, sizeof(buf));
     httpd_resp_set_type(req, "application/json");
     if (err == ESP_OK) {
+        vault_msc_on_unlock();
         s_failures = 0;
         uint8_t token[32];
         vault_crypto_random(token, sizeof(token));
@@ -165,6 +181,12 @@ static esp_err_t api_unlock_handler(httpd_req_t *req) {
         char response[128];
         snprintf(response, sizeof(response), "{\"success\":true,\"token\":\"%s\"}", s_token);
         return httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
+    } else if (creating || err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "Vault %s failed: %d", creating ? "setup" : "unlock", (int)err);
+        if (s_display_cb) s_display_cb("STORAGE ERROR", creating ? "Vault setup failed" : "Vault unlock failed");
+        return json_error(req, "500 Internal Server Error", creating ?
+            "Vault setup failed while encrypting or saving to the SD card" :
+            "Vault could not be read or decrypted; check the SD card");
     } else {
         if (s_failures < 5) s_failures++;
         s_next_auth = esp_timer_get_time() + (int64_t)(1U << s_failures) * 1000000;
@@ -181,6 +203,13 @@ static esp_err_t api_lock_handler(httpd_req_t *req) {
     if (s_display_cb) s_display_cb("LOCKED", "Web Lock Activated");
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, "{\"success\":true}", HTTPD_RESP_USE_STRLEN);
+}
+
+static esp_err_t api_usb_connect(httpd_req_t *req) {
+    esp_err_t err=vault_msc_connect();
+    if(err!=ESP_OK) return json_error(req,"409 Conflict",
+        "USB drive could not be opened. Enable USB, finish transfers and check SD free space (at least 66 MB). Existing drive data is never reformatted automatically.");
+    return httpd_resp_send(req,"{\"success\":true}",HTTPD_RESP_USE_STRLEN);
 }
 
 static esp_err_t api_files_handler(httpd_req_t *req) {
@@ -541,6 +570,14 @@ static esp_err_t guarded_handler(httpd_req_t *req) {
         ret = json_error(req, "403 Forbidden", "Same-origin controller required");
     } else if (!public && !authenticated(req)) {
         ret = json_error(req, "401 Unauthorized", "Unlock this browser session first");
+    } else if(vault_drive_exists() && strncmp(req->uri,"/api/upload",11)==0) {
+        ret=json_error(req,"409 Conflict","Use the SD card USB drive for new files; existing phone/client files can be downloaded or deleted after USB eject");
+    } else if((vault_msc_exported() || vault_msc_busy()) &&
+              (strncmp(req->uri,"/api/files",10)==0 || strncmp(req->uri,"/api/upload",11)==0 ||
+               strncmp(req->uri,"/api/download",13)==0 || strncmp(req->uri,"/api/delete",11)==0 ||
+               !strcmp(req->uri,"/api/lock") || !strcmp(req->uri,"/api/restart") ||
+               !strcmp(req->uri,"/api/change_pin") || (!strcmp(req->uri,"/api/settings") && req->method==HTTP_POST))) {
+        ret=json_error(req,"409 Conflict","Safely eject the USB drive in Windows before locking, changing settings or using phone/client files");
     } else {
         esp_err_t (*handler)(httpd_req_t *) = (esp_err_t (*)(httpd_req_t *))req->user_ctx;
         ret = handler(req);
@@ -577,6 +614,7 @@ esp_err_t vault_web_start(void) {
         { .uri = "/api/settings", .method = HTTP_GET, .handler = api_settings_get },
         { .uri = "/api/settings", .method = HTTP_POST, .handler = api_settings_post },
         { .uri = "/api/restart", .method = HTTP_POST, .handler = api_restart },
+        { .uri = "/api/usb/connect", .method = HTTP_POST, .handler = api_usb_connect },
     };
 
     for (size_t i = 0; i < sizeof(uris) / sizeof(uris[0]); i++) {

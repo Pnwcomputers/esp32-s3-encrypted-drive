@@ -70,6 +70,8 @@ typedef struct {
 esp_err_t vault_storage_init(void);
 void vault_storage_set_ready(bool ready);
 bool vault_storage_is_ready(void);
+/* Opens the encrypted USB image without exporting the session key. */
+esp_err_t vault_storage_drive_open(bool create);
 /* Verifies without altering an unlocked session; callers must serialize access. */
 esp_err_t vault_storage_verify_pin(const char *pin);
 

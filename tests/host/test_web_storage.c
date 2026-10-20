@@ -1,6 +1,9 @@
 #include <assert.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "vault_web.c"
+#include "tusb.h"
 const char vault_index_start[] = "test";
 extern int64_t host_time;
 extern int host_commit_fail;
@@ -10,6 +13,14 @@ static void call(const char *uri,int method,const char *body,const char *token,e
 }
 int main(void) {
  assert(vault_runtime_init()==ESP_OK);assert(vault_config_init()==ESP_OK);assert(vault_storage_init()==ESP_OK);
+ // Setup validation and SD write failures must not report wrong PIN or throttle retries.
+ call("/api/unlock",HTTP_POST,"{\"pin\":\"1234\"}",NULL,api_unlock_handler);
+ assert(strstr(r.status,"400") && strstr(r.response,"6–63") && s_failures==0);
+ assert(mkdir(VAULT_DIR "/index.tmp",0700)==0);
+ call("/api/unlock",HTTP_POST,"{\"pin\":\"123456\"}",NULL,api_unlock_handler);
+ assert(strstr(r.status,"500") && strstr(r.response,"setup failed") && s_failures==0);
+ assert(!vault_storage_is_provisioned() && !vault_storage_is_unlocked());
+ assert(rmdir(VAULT_DIR "/index.tmp")==0);
  call("/api/unlock",HTTP_POST,"{\"pin\":\"123456\"}",NULL,api_unlock_handler);
  assert(strstr(r.response,"\"success\":true"));char token[65];strcpy(token,s_token);
  call("/api/settings",HTTP_GET,NULL,NULL,api_settings_get);assert(strstr(r.status,"401"));
@@ -60,5 +71,14 @@ int main(void) {
  vault_storage_lock();assert(vault_storage_unlock("abcdef")==ESP_OK);
  FILE *extra=fopen(VAULT_INDEX_PATH,"ab");assert(extra);fputc(0,extra);fclose(extra);
  vault_storage_lock();assert(vault_storage_unlock("abcdef")!=ESP_OK);assert(!vault_storage_is_unlocked());
- free(data);puts("Host firmware regression checks passed (fragmented HTTP, sessions, settings, storage, credentials, idle lock)");return 0;
+ // Exported drive owns storage: browser locking/mutations must wait for eject.
+ remove(VAULT_META_PATH);remove(VAULT_INDEX_PATH);assert(vault_storage_create("123456")==ESP_OK);
+ call("/api/unlock",HTTP_POST,"{\"pin\":\"123456\"}",NULL,api_unlock_handler);strcpy(token,s_token);
+ assert(vault_storage_drive_open(true)==ESP_OK && vault_drive_create_step()==ESP_OK);
+ call("/api/lock",HTTP_POST,"{}",token,api_lock_handler);assert(strstr(r.status,"409") && vault_storage_is_unlocked());
+ call("/api/upload?name=test.bin",HTTP_POST,"test",token,api_upload_handler);assert(strstr(r.status,"409"));
+ call("/api/status",HTTP_GET,NULL,token,api_status_handler);assert(strstr(r.response,"\"usb_drive_ready\":true"));
+ assert(tud_msc_start_stop_cb(0,0,false,true));
+ call("/api/lock",HTTP_POST,"{}",token,api_lock_handler);assert(!vault_storage_is_unlocked());
+ free(data);puts("Host firmware regression checks passed (fragmented HTTP, sessions, settings, storage, credentials, idle lock, USB ownership)");return 0;
 }

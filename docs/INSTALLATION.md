@@ -12,4 +12,4 @@ idf.py build
 
 On Ubuntu/WSL, `bash tools/build_wsl.sh --clean-config` installs a separate build cache and builds without touching a system ESP-IDF installation. This needs network access on first use. Outputs go to `artifacts/firmware`.
 
-The supplied binaries passed compilation/linking, not physical-board validation. Confirm the board revision and flash size, then follow HARDWARE_VALIDATION.md before using important files. See the root README for desktop commands. No eFuse or security-provisioning commands are included.
+The supplied binaries passed compilation/linking and basic boot, phone-page and USB checks on the development board. Encrypted file round trips and the remaining physical checks are still in progress. Confirm the board revision and flash size, then follow HARDWARE_VALIDATION.md before using important files. See the root README for desktop commands. No eFuse or security-provisioning commands are included.

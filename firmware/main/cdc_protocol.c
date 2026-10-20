@@ -11,6 +11,7 @@
 #include "vault_storage.h"
 #include "status_led.h"
 #include "vault_runtime.h"
+#include "vault_msc.h"
 #include "esp_timer.h"
 #include "freertos/semphr.h"
 
@@ -389,6 +390,9 @@ static void handle_lock(uint32_t req_id) {
 }
 
 static void dispatch_frame(const protocol_header_t *hdr, const uint8_t *payload) {
+    if((vault_msc_exported() || vault_msc_busy()) && hdr->command!=CMD_GET_STATUS) {
+        send_status_response(hdr->command,hdr->request_id,STATUS_ERR_BUSY);return;
+    }
     if ((hdr->command == CMD_GET_STATUS || hdr->command == CMD_LIST_FILES || hdr->command == CMD_LOCK) && hdr->payload_len) {
         send_status_response(hdr->command, hdr->request_id, STATUS_ERR_INVALID_ARG); return;
     }

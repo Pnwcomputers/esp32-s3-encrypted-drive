@@ -1,4 +1,5 @@
 #include "vault_storage.h"
+#include "vault_drive.h"
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -356,6 +357,7 @@ bool vault_storage_is_unlocked(void) {
 }
 
 void vault_storage_lock(void) {
+    vault_drive_close();
     vault_secure_zero(s_vault_dek, sizeof(s_vault_dek));
     s_vault_unlocked = false;
 
@@ -372,6 +374,11 @@ void vault_storage_lock(void) {
     s_index_count = 0;
 
     ESP_LOGI(TAG, "Vault locked and session keys erased");
+}
+
+esp_err_t vault_storage_drive_open(bool create) {
+    if(!s_ready || !s_vault_unlocked || s_upload_active || s_download_active) return ESP_ERR_INVALID_STATE;
+    return vault_drive_open(s_vault_dek,create);
 }
 
 esp_err_t vault_storage_get_stats(uint32_t *total_mb, uint32_t *free_mb, uint32_t *file_count) {
@@ -407,6 +414,10 @@ esp_err_t vault_storage_list_files(vault_file_record_t *records, size_t max_reco
 }
 
 esp_err_t vault_storage_upload_begin(const char *filename, uint64_t total_size, uint8_t *out_file_id) {
+    /* Once capacity belongs to the USB volume, new legacy uploads must not
+     * consume the space Windows was told is available. Existing files remain
+     * readable/deletable after USB eject. */
+    if (vault_drive_exists()) return ESP_ERR_INVALID_STATE;
     if (!s_vault_unlocked) return ESP_ERR_INVALID_STATE;
     if (!filename || strlen(filename) == 0 || !out_file_id) return ESP_ERR_INVALID_ARG;
     if (!strcmp(filename, ".") || !strcmp(filename, "..")) return ESP_ERR_INVALID_ARG;
