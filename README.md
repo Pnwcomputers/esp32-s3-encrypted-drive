@@ -1,8 +1,5 @@
-
 # 🔐 ESP32-S3 Encrypted Vault Drive
 ## *Self-Hosted, Air-Gapped Encrypted USB Storage for the Waveshare ESP32-S3-LCD-1.47*
-# ESP32-S3 Encrypted Vault Drive *via MicroSD Card*
-
 
 ![Platform](https://img.shields.io/badge/Platform-ESP32--S3-E7352C)
 ![Framework](https://img.shields.io/badge/ESP--IDF-5.5.5-blue)
