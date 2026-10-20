@@ -1,10 +1,10 @@
-# ESP32-S3 encrypted vault drive
+# ESP32-S3 Encrypted Vault Drive *via MicroSD Card*
 
 Development firmware for the **Waveshare ESP32-S3-LCD-1.47**, with a self-hosted Wi-Fi controller, encrypted microSD storage exposed as a USB drive, USB CDC desktop tools, LCD status and GPIO38 RGB status LED. No buttons or touch input are required.
 
 This snapshot integrates the firmware modules and browser configuration. **The ESP-IDF 5.5.5 target build and host regressions pass. Phone setup and encrypted USB-serial file round trips pass on the physical board. Normal USB-drive access has been added and is undergoing hardware validation.** Use test data until hardware validation and security review are complete.
 
-## Use the device
+## How To Use The Device
 
 1. Insert a FAT32 microSD card and power the device over USB. Failed SD mounts never automatically format the card.
 2. Connect your phone or computer to **MyEarPods**, password **53cur3ty** (factory defaults).
@@ -15,7 +15,7 @@ This snapshot integrates the firmware modules and browser configuration. **The E
 
 The device uses ESP32 **SoftAP** mode, often referred to in this project as “ad-hoc Wi-Fi.” It needs no router or internet access. The application assets are embedded in firmware. A browser unlock issues a random session token held only in that page's memory. Refreshing the page requires unlocking again; a new unlock replaces the previous browser token. USB access follows the device's global lock state.
 
-## Build and desktop tools
+## Build and Desktop Tools
 
 Use ESP-IDF 5.5.5 (the manifest pins the verified framework and component versions). From an ESP-IDF terminal:
 
@@ -54,7 +54,7 @@ The runner executes 17 Python regression functions and a C regression executable
 
 See [validation results](docs/VALIDATION.md), [configuration](docs/CONFIGURATION.md), [security limits](docs/THREAT_MODEL.md) and [next hardware checks](docs/HARDWARE_VALIDATION.md).
 
-## Security limits
+## Security Limits
 
 - AES-256-GCM protects chunks and the catalog; PBKDF2-HMAC-SHA256 (10,000 rounds, preserved format) wraps the random data key. A short numeric PIN remains vulnerable to **offline guessing from a copied card**. No device-bound eFuse secret or recovery-key wrapper is implemented.
 - Names and timestamps are encrypted in the catalog, but raw container headers, file counts, file lengths, allocation and access patterns remain observable. Nonces are random 96-bit values, not a counter with a mathematical uniqueness guarantee.
