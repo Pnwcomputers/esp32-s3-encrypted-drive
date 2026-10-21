@@ -1,38 +1,44 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
+name: "🐛 Bug report"
+about: Report a firmware, web portal, USB or desktop-tool problem
+title: "[BUG]: "
+labels: ["bug"]
 assignees: Pnwcomputers
-
 ---
 
+> ⚠️ **Security vulnerabilities:** don't file them here. See the [security policy](../SECURITY.md).
+
 **Describe the bug**
-A clear and concise description of what the bug is.
+What happened, and what did you expect to happen?
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+**To reproduce**
+1.
+2.
+3.
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+**Area**
+- [ ] Web portal / unlock / settings
+- [ ] USB drive (MSC)
+- [ ] USB CDC desktop tools (CLI/GUI)
+- [ ] LCD / status LED
+- [ ] Build / tests / CI
+- [ ] Docs
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Environment**
+- Commit or release:
+- Board and revision (e.g. Waveshare ESP32-S3-LCD-1.47, rev 0.2):
+- ESP-IDF version (or `tools/build_wsl.sh`):
+- microSD card (size, brand, format):
+- Host OS (for USB issues):
+- Phone/browser (for portal issues):
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+**Logs**
+Paste the relevant `idf.py monitor` output and any desktop-tool output.
+**Remove PINs, passphrases and Wi-Fi passwords first.**
 
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+```text
+
+```
 
 **Additional context**
-Add any other context about the problem here.
+Screenshots, LED pattern, LCD message, etc.

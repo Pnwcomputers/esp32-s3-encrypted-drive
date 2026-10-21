@@ -1,3 +1,7 @@
+> 📜 **Historical document.** This is the original 2026-10-13 design spec and prototype source.
+> It is **superseded**: the fixed PIN (`123456`) and the Wi-Fi teardown after unlock no longer exist.
+> Current behavior is described in the [README](../../README.md) and [`docs/THREAT_MODEL.md`](../THREAT_MODEL.md).
+
 # ESP32-S3 Encrypted Hardware Vault — Firmware & Display Specification
 
 ## Project Overview

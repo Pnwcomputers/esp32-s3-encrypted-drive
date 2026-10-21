@@ -4,8 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+No release has been tagged yet; everything below is in the development build.
 
 ## [Unreleased]
+
+### Documentation
+- README cleanup: removed duplicated intro/warning paragraphs and stray merge-leftover
+  headings, added a documentation index and MIT license section, and corrected the
+  subtitle (the Wi-Fi portal stays up while unlocked, so the device is offline but
+  not air-gapped).
+- Replaced template placeholders with project content: `docs/COMPATIBILITY.md`
+  (renamed from the misspelled `COMPATABILITY.md`), `docs/TROUBLESHOOTING.md`, the
+  bug report and hardware issue templates, and the code-of-conduct contact.
+- Added `.github/SECURITY.md` and pointed the issue-template security link at it.
+- Removed the unrelated "workstation deployment" issue template (left over from another
+  project) and tailored the PR template and CONTRIBUTING to this repo's test and
+  changelog workflow.
+- Moved the original design spec (`NOTES.md`) to `docs/archive/ORIGINAL_SPEC.md`
+  with a note that it describes superseded behavior (fixed PIN, Wi-Fi teardown).
+- Folded `PATCH_NOTES.md` into this changelog.
+- Refreshed stale statements in `docs/INSTALLATION.md` and
+  `docs/HARDWARE_VALIDATION.md` to match the validation record.
+
+### Fixed (repository)
+- Moved the issue-labeler config from `.github/workflows/labeler.yml` (where GitHub
+  tried to parse it as a workflow) to `.github/labeler.yml`, the path the
+  auto-label workflow already referenced.
+- Removed the duplicated front matter in the implementation-question issue template.
+
+## 2026-10-20: Code review fixes and PSRAM
 
 ### Security
 - Scrub the current and proposed credentials (and the raw request body) on **every**
@@ -19,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Enabled the board's 8 MB octal PSRAM** (`sdkconfig.defaults`) and allocate the USB
   drive's ~32 KB working set from it (`vault_drive.c`, runtime `heap_caps_calloc`, with
-  an internal fallback — nothing static). Previously PSRAM was off, so the whole stack
+  an internal fallback; nothing static). Previously PSRAM was off, so the whole stack
   (Wi-Fi + LCD + USB + HTTP) competed for ~512 KB internal SRAM and the drive-state
   allocation failed under pressure, making **Enable SD card drive** always report
   "USB drive could not be opened." Confirmed fixed on hardware: the volume now mounts
@@ -39,19 +66,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `docs/CODE_REVIEW.md`: a full correctness + security review of the firmware and
   desktop tools (find → adversarial verify → synthesize), with findings and fixes.
+- `LICENSE.md` (MIT).
 
-## Earlier development
+## 2026-10-19: Encrypted USB drive and hardening
 
+### Added
+- Firmware split into modules (`vault_crypto`, `vault_storage`, `vault_web`,
+  `vault_config`, `vault_runtime`, `cdc_protocol`, ...). AES-256-GCM chunk storage and
+  encrypted catalog with a random data key wrapped by PBKDF2-HMAC-SHA256.
+- First-use provisioning and PIN/passphrase unlock (replacing the fixed prototype
+  PIN), browser session tokens, bounded RAM-only retry delays, NVS-backed settings,
+  idle locking and credential rotation that preserves the data key. The SoftAP portal
+  stays up while unlocked.
 - Composite CDC + USB Mass Storage interface backed by AES-256-GCM encrypted data on
-  the microSD, exposed only while unlocked; authenticated block/map/root records, a
-  durable redo journal, FAT32 geometry, locked-medium gating and safe-eject handling.
-- First-use provisioning, PIN/passphrase unlock, browser session tokens, bounded
-  RAM-only retry delays, NVS-backed settings, idle locking, credential rotation that
-  preserves the data key.
+  the microSD, exposed only while unlocked and sized to nearly all free card capacity.
+  Authenticated lazy block allocation, segmented backing files, a durable redo
+  journal, FAT32 geometry, locked-medium gating, safe-eject handling and phone
+  create/reconnect controls. See `docs/USB_DRIVE.md`.
 - Non-blocking WS2812 RGB status LED controller for the onboard LED (GPIO38), wired to
   locked / PIN-entry / auth success+failure / unlocked / transfer / recovery states.
-- Hardened desktop client (partial-write-safe serial, serialized exchanges, monotonic
-  timeouts, required acknowledgements, atomic downloads) and a 17-check Python
-  regression suite plus native firmware regressions under ASan/UBSan.
 - Reproducible isolated WSL target build (`tools/build_wsl.sh`) with pinned ESP-IDF
-  5.5.5 and component lockfile.
+  5.5.5, a regenerated component lockfile and exact component pins.
+- Browser Host/Origin validation; storage usage hidden from unauthenticated status
+  requests. Catalog/container trailing-byte checks and transfer ID validation.
+- CI: Python, sanitized native host checks and an ESP32-S3 target build (replacing an
+  unrelated Pester job). Python regressions expanded to 17 checks with a
+  Windows-friendly `--python-only` mode; native browser-origin and trailing-catalog
+  corruption checks added.
+
+### Fixed
+- First-time provisioning on ESP-IDF's accelerated AES-GCM path: provide non-null
+  buffers for zero-byte catalog/file messages while keeping zero plaintext length.
+  Added a strict driver-contract regression, and the web page now distinguishes
+  setup/storage failures from incorrect credentials.
+- TinyUSB 2.4.0 target-build error: removed the obsolete `rx_unread_buf_sz`
+  initializer; CDC buffers are configured through sdkconfig defaults.
+- CDC command-length checks, bounded TX backpressure waits, and shutdown now waits for
+  the CDC worker before freeing its receive ringbuffer.
+- NVS configuration is preserved on startup errors; display allocation is checked;
+  the GUI no longer closes while a transfer worker is still running.
+
+### Changed
+- Hardened desktop client: partial serial writes, serialized command exchanges,
+  monotonic timeouts, required acknowledgements, unique temporary downloads, fsync plus
+  atomic replacement, and download cleanup. Ambiguous or unrelated ports require
+  explicit selection.
+- Filename downloads resolve to file IDs (including the ambiguous 14-byte legacy
+  case); hex-ID downloads are retained. Path/control-character names are rejected.
+  Existing destination and `.part` files are protected on failed downloads.
+- Protocol documentation updated to describe the implemented wire format.
+
+## 2026-10-13: Initial prototype
+
+- Single-file prototype (`main.c`): ST7789 LCD via LVGL 9 (34-px column gap, full
+  refresh), SDMMC microSD mount, a `MyEarPods` SoftAP with a fixed-PIN unlock page, and
+  TinyUSB CDC after unlock. Superseded by the 2026-10-19 rework.
+- Original design notes (now `docs/archive/ORIGINAL_SPEC.md`), desktop protocol
+  skeleton and initial docs.

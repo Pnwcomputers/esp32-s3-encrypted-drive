@@ -18,6 +18,7 @@ Thanks for your interest in contributing! This is **security-sensitive embedded 
 
 ### 🔧 Code Contributions
 - Fork, branch, keep the host test suite green, and update docs
+- Add a line under `[Unreleased]` in [`Logs/CHANGELOG.md`](../Logs/CHANGELOG.md)
 - Match the surrounding code style (the firmware is deliberately compact C)
 - Keep the desktop `protocol.py` wire format in sync with the firmware and [`docs/PROTOCOL.md`](../docs/PROTOCOL.md)
 
@@ -91,7 +92,7 @@ test(storage): add truncated-catalog regression
 
 ## 🛡️ Security Issues
 
-**Do not open a public issue for vulnerabilities.** Email **[support@pnwcomputers.com](mailto:support@pnwcomputers.com)** with a proof of concept (if safe) and allow reasonable time for a fix before disclosure.
+**Do not open a public issue for vulnerabilities.** Follow the [security policy](SECURITY.md): report privately via GitHub's **Report a vulnerability** button or email **[support@pnwcomputers.com](mailto:support@pnwcomputers.com)**, and allow reasonable time for a fix before disclosure.
 
 ## 📞 Getting Help
 

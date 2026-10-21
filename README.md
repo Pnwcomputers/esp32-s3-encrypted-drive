@@ -1,5 +1,5 @@
 # 🔐 ESP32-S3 Encrypted Vault Drive *via MicroSD Card*
-## *Self-Hosted, Air-Gapped Encrypted USB Storage for the Waveshare ESP32-S3-LCD-1.47*
+## *Self-Hosted, Offline Encrypted USB Storage for the Waveshare ESP32-S3-LCD-1.47*
 
 ![Platform](https://img.shields.io/badge/Platform-ESP32--S3-E7352C)
 ![Framework](https://img.shields.io/badge/ESP--IDF-5.5.5-blue)
@@ -9,24 +9,17 @@
 ![Status](https://img.shields.io/badge/Status-Development%20Build-orange)
 ![GitHub issues](https://img.shields.io/github/issues/Pnwcomputers/esp32-s3-encrypted-drive)
 ![Maintenance](https://img.shields.io/badge/Maintained-Yes-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ### **A microSD vault that only unlocks over its own privately hosted Wi-Fi; then appears as a normal encrypted USB drive**
 
 Development firmware for the **Waveshare ESP32-S3-LCD-1.47** (USB-A thumb-drive form factor) that turns a plain microSD card into an encrypted vault. The card holds only AES-256-GCM ciphertext. The device hosts its own Wi-Fi access point and web portal; after you unlock there, the ESP32 exposes the decrypted volume to the host computer as a real USB drive, decrypting and encrypting every block on the fly. No router, no internet, no buttons, no touch input.
 
-> ⚠️ **This is a development build for disposable test data.** The ESP-IDF 5.5.5 target build is clean, the host regression suite passes, and the encrypted USB drive has been verified creating, mounting (FAT32), reading and writing on real Windows. Device-bound keys, authenticated transport, Secure Boot/flash encryption and an independent security review are **not** done; see the **Security Model & Limits** section below.
-
-Development firmware for the **Waveshare ESP32-S3-LCD-1.47** (USB-A thumb-drive form factor) that turns a plain microSD card into an encrypted vault. The card holds only AES-256-GCM ciphertext. The device hosts its own Wi-Fi access point and web portal; after you unlock there, the ESP32 exposes the decrypted volume to the host computer as a real USB drive, decrypting and encrypting every block on the fly. No router, no internet, no buttons, no touch input.
-
----
-
-## How To Use The Device
 > ⚠️ **This is a development build for disposable test data.** The ESP-IDF 5.5.5 target build is clean, the host regression suite passes, and the encrypted USB drive has been verified creating, mounting (FAT32), reading and writing on real Windows. Device-bound keys, authenticated transport, Secure Boot/flash encryption and an independent security review are **not** done; see [Security Model & Limits](#️-security-model--limits).
 
 ---
 
 ## 📌 Project Status
-## Build & Desktop Tools
 
 | Area | State |
 |------|-------|
@@ -150,15 +143,29 @@ python tests/run_checks.py --python-only
 
 The runner executes 17 Python regression functions plus a C regression executable built from the actual firmware web/config/runtime/storage/drive code. The Linux host harness needs GCC, OpenSSL dev headers and libcjson; it substitutes host crypto/HTTP/NVS/FreeRTOS adapters (it does **not** exercise mbedTLS or ESP32 drivers). AddressSanitizer and UndefinedBehaviorSanitizer are enabled. In restricted environments where LeakSanitizer can't read `/proc`, run `ASAN_OPTIONS=detect_leaks=0 python tests/run_checks.py`.
 
-See [validation results](docs/VALIDATION.md), [configuration](docs/CONFIGURATION.md), [security limits](docs/THREAT_MODEL.md), [protocol](docs/PROTOCOL.md) and [next hardware checks](docs/HARDWARE_VALIDATION.md).
+See [validation results](docs/VALIDATION.md) and the [remaining hardware checks](docs/HARDWARE_VALIDATION.md).
 
+## 📚 Documentation
+
+| Topic | Document |
+|-------|----------|
+| Installation & build | [`docs/INSTALLATION.md`](docs/INSTALLATION.md) |
+| Device settings & HTTP API | [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) |
+| Encrypted USB drive | [`docs/USB_DRIVE.md`](docs/USB_DRIVE.md) |
+| USB CDC wire protocol | [`docs/PROTOCOL.md`](docs/PROTOCOL.md) |
+| Status LED patterns | [`docs/STATUS_LED.md`](docs/STATUS_LED.md) |
+| Setup & recovery | [`docs/PROVISIONING_AND_RECOVERY.md`](docs/PROVISIONING_AND_RECOVERY.md) |
+| Security model & limits | [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) |
+| Proposed key design (future) | [`docs/KEY_DESIGN.md`](docs/KEY_DESIGN.md) |
+| Code & security review | [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md) |
+| Validation evidence | [`docs/VALIDATION.md`](docs/VALIDATION.md) |
+| Hardware validation checklist | [`docs/HARDWARE_VALIDATION.md`](docs/HARDWARE_VALIDATION.md) |
+| Compatibility | [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) |
+| Troubleshooting | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) |
+| FAQ | [`FAQ.md`](FAQ.md) |
+| Changelog | [`Logs/CHANGELOG.md`](Logs/CHANGELOG.md) |
 
 ## 🗂️ Project Structure
-
-
-## 🗂️ Project Structure
-## Security Limits
-
 
 ```text
 esp32-s3-encrypted-drive/
@@ -182,6 +189,9 @@ esp32-s3-encrypted-drive/
 ├── tests/                         # Python + native (ASan/UBSan) regressions
 ├── tools/build_wsl.sh             # Reproducible isolated target build
 ├── docs/                          # Threat model, protocol, validation, etc.
+│   └── archive/                   # Original design spec (historical)
+├── Logs/CHANGELOG.md              # Release history
+├── .github/                       # CI, issue/PR templates, contributing, security policy
 └── artifacts/                     # Build outputs (gitignored)
 ```
 
@@ -228,10 +238,13 @@ Contributions are welcome; see [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.
 - **📖 Documentation**; Clarify the README/docs, expand the threat model, add validation evidence
 - **🐛 Bug Reports**; Open an issue with hardware revision, logs, and reproduction steps
 - **💡 Feature Requests**; Open an issue with a `[FEATURE]` tag and the use case
-- **🔒 Security Issues**; Email [support@pnwcomputers.com](mailto:support@pnwcomputers.com) with a proof of concept and allow reasonable disclosure time
+- **🔒 Security Issues**; Follow the [security policy](.github/SECURITY.md); please don't open public issues for vulnerabilities
 
 ## 📄 License
-Development firmware for evaluation and disposable test data. See the repository for current license terms, or contact [support@pnwcomputers.com](mailto:support@pnwcomputers.com).
+
+Released under the [MIT License](LICENSE.md). © 2026 Pacific Northwest Computers.
+
+The software is provided "as is", without warranty. It is a development build: don't trust it with data you can't afford to lose.
 
 ## 📞 Support & Contact
 

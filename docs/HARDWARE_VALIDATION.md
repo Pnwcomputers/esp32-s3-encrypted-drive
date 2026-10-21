@@ -2,7 +2,7 @@
 
 Target: Waveshare ESP32-S3-LCD-1.47, without touch input. Retained source pins: LCD MOSI45/SCLK40/CS42/DC41/RST39/backlight48; SD CLK14/CMD15/D0=16/D1=18/D2=17/D3=21; RGB LED38. Verify the exact board revision and schematic. No navigation-button wiring is required.
 
-1. Build in ESP-IDF 5.x, resolve managed components and review warnings. Confirm 16 MB flash, the custom partition table, FAT long filenames, USB CDC and LVGL 9. Keep eFuse/security provisioning disabled.
+1. Build in ESP-IDF 5.5.5, resolve managed components and review warnings. Confirm 16 MB flash, the custom partition table, FAT long filenames, USB CDC and LVGL 9. Keep eFuse/security provisioning disabled.
 2. With expendable FAT32 test media, verify SD mounting and locked startup. Remove the card and verify that the controller stays accessible and reports an unavailable card without formatting anything.
 3. Connect via SoftAP, create a credential, lock, unlock with correct/wrong credentials and power-cycle. Verify Wi-Fi remains available throughout. Verify no hard-coded vault PIN works as a bypass.
 4. Test mobile setup, typed passphrases and the virtual numeric keypad. Test retry delays, refresh/re-authentication and a second browser lacking a token.
@@ -13,4 +13,4 @@ Target: Waveshare ESP32-S3-LCD-1.47, without touch input. Retained source pins: 
 9. On copied test media, corrupt a tag/container length/catalog and verify decryption fails closed. Try incomplete uploads and ensure commit refuses them.
 10. Test power interruption around catalog and credential replacement, including recovery from `.bak` files. Preserve card copies before tests. Check stack watermarks and minimum heap under combined Wi-Fi/LCD/USB load.
 
-Host tests do not replace these checks. No board was attached during this update.
+Host tests do not replace these checks. Steps 1–2 and parts of 3 and 5 have passed on a rev 0.2 board (setup/unlock; CDC transfers of 0 B–64 KiB; the USB drive creates and mounts on Windows); see VALIDATION.md for the evidence. The rest are still open.
