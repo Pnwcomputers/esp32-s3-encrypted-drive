@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/esp32vaultlogo.jpg" alt="Self-Hosted, Offline Encrypted USB Storage for the Waveshare ESP32-S3-LCD-1.47." width="600"/>
+</p>
+
 # 🔐 ESP32-S3 Encrypted Vault Drive *via MicroSD Card*
 ## *Self-Hosted, Offline Encrypted USB Storage for the Waveshare ESP32-S3-LCD-1.47*
 
