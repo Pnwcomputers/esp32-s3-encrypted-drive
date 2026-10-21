@@ -4,9 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-No release has been tagged yet; everything below is in the development build.
+Dated sections before 1.0.0 record development history before the first release.
 
 ## [Unreleased]
+
+## [1.0.0] - 2026-10-21
+
+First tagged release. Still a **development build for disposable test data**; see
+the security limits in the README and `docs/THREAT_MODEL.md`.
+
+### Firmware
+- Binaries come from the image running on the validated board (ESP32-S3 rev 0.2,
+  16 MB flash, 8 MB PSRAM): `esp32_vault`, compiled 2026-10-20 09:46 with ESP-IDF
+  5.5.5. They were cut from a full flash backup that `esptool verify-flash` checked
+  against the chip, and the app's embedded SHA-256 validates. The firmware source
+  hasn't changed since commit `1bcc1f6` (PSRAM fix), which matches this build. Over
+  USB CDC, `GET_STATUS` reports firmware version `0x0100`.
+- Release assets: `bootloader.bin` (0x0), `partition-table.bin` (0x8000),
+  `esp32_vault.bin` (0x10000) and `SHA256SUMS`. The settings (NVS) partition is not
+  included, so a flashed board starts with factory defaults.
+
+### Added
+- `tools/verify_sd_encryption.py`: checks a card removed from the device. It plants
+  a canary file through the vault, then searches the removed card (and optionally
+  the raw device) for it, checks every vault record's ciphertext entropy, and flags
+  files outside `/vault`. Procedure in `docs/VALIDATION.md`.
 
 ### Documentation
 - README cleanup: removed duplicated intro/warning paragraphs and stray merge-leftover
@@ -32,7 +54,7 @@ No release has been tagged yet; everything below is in the development build.
   auto-label workflow already referenced.
 - Removed the duplicated front matter in the implementation-question issue template.
 
-## 2026-10-20: Code review fixes and PSRAM
+## 2026-10-20: Code review fixes and PSRAM (pre-release)
 
 ### Security
 - Scrub the current and proposed credentials (and the raw request body) on **every**

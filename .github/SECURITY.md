@@ -11,7 +11,12 @@ vulnerabilities.
 
 ## Supported versions
 
-No release has been tagged yet. Only the latest commit on `main` gets security fixes.
+| Version | Supported |
+|---------|-----------|
+| 1.0.x   | ✅ |
+| Older development snapshots | ❌ |
+
+Fixes land on `main` and in the next 1.0.x release.
 
 ## Reporting a vulnerability
 

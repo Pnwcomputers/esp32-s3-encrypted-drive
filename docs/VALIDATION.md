@@ -43,6 +43,41 @@ bash tools/build_wsl.sh --clean-config
 
 The builder uses `/var/tmp/esp32-vault-toolchain` as a separate cache, preserving system ESP-IDF installations. It copies outputs to `artifacts/firmware` and never flashes. Build and host logs are included in the packaged artifacts. GitHub Actions has matching jobs, but no remote CI run is claimed.
 
+## Verify the card is encrypted
+
+`tools/verify_sd_encryption.py` checks a card **after** it has been removed from the
+device. It never writes to the card.
+
+1. Create a canary file and copy it onto the **ESP32 VAULT** drive (you can also
+   upload it with the CDC tools):
+
+   ```sh
+   python tools/verify_sd_encryption.py make-canary
+   ```
+
+2. Safely eject ESP32 VAULT in the OS, lock the vault, unplug the device and remove
+   the microSD card. Delete the local copy of the canary file.
+3. Mount the card on a computer (read-only if possible) and run:
+
+   ```sh
+   python tools/verify_sd_encryption.py check /path/to/card --canary VAULTCANARY...
+   # Also scan the raw device, including free/deleted space (Linux; needs root):
+   sudo python3 tools/verify_sd_encryption.py check /path/to/card --canary VAULTCANARY... --raw /dev/sdX
+   ```
+
+`PASS` means the canary text and filename don't appear anywhere on the card in
+UTF-8 or UTF-16LE, and every written vault record (USB drive blocks, allocation maps,
+volume root, journal, catalog and CDC file chunks) has random-looking ciphertext.
+Files outside `/vault` are reported because the vault doesn't protect them.
+
+Visible by design: the file names `usb-NNNNN.enc` etc., file sizes and counts, which
+blocks have been written, record IVs and tags, and the PBKDF2 salt and iteration
+count in `vault.meta`. None of these reveal file contents or names.
+
+The checker was validated on the host against a vault produced by the real
+`vault_storage.c`/`vault_drive.c` code. That vault passed. Planting a plaintext block
+in a segment and a canary file outside `/vault` both produced `FAIL`.
+
 ## Still requires physical hardware or review
 
 - LCD orientation/partial-refresh behavior, backlight, RMT LED patterns and microSD/FAT32 capacity under load.

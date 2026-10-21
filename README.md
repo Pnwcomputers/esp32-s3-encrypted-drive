@@ -95,6 +95,18 @@ Target: **Waveshare ESP32-S3-LCD-1.47** (no touch), 16 MB flash, 8 MB embedded o
 5. **⚙️ Open Device settings** to change Wi-Fi name/password/channel, hidden SSID, idle lock, USB access, LED mode, screen brightness and rotation. Enter the current credential to save, then **Restart** from the page to apply network/USB/display changes.
 6. **🔑 Change the PIN/passphrase** separately using the old credential plus confirmation. This rewraps the data key without rewriting file contents.
 
+### Flash a Release (no toolchain needed)
+
+Download the assets from the [latest release](https://github.com/Pnwcomputers/esp32-s3-encrypted-drive/releases/latest), check them with `sha256sum -c SHA256SUMS`, put the board in download mode (hold **BOOT** while plugging it in), then:
+
+```sh
+pip install esptool
+esptool --chip esp32s3 --port YOUR_PORT write-flash \
+  0x0 bootloader.bin 0x8000 partition-table.bin 0x10000 esp32_vault.bin
+```
+
+Unplug and replug to boot. Release images contain no settings, so the device starts with the factory Wi-Fi defaults; **change them right away**. Flashing doesn't touch the microSD card.
+
 ### Build & Flash
 
 From an ESP-IDF 5.5.5 terminal:
@@ -143,6 +155,8 @@ python tests/run_checks.py --python-only
 
 The runner executes 17 Python regression functions plus a C regression executable built from the actual firmware web/config/runtime/storage/drive code. The Linux host harness needs GCC, OpenSSL dev headers and libcjson; it substitutes host crypto/HTTP/NVS/FreeRTOS adapters (it does **not** exercise mbedTLS or ESP32 drivers). AddressSanitizer and UndefinedBehaviorSanitizer are enabled. In restricted environments where LeakSanitizer can't read `/proc`, run `ASAN_OPTIONS=detect_leaks=0 python tests/run_checks.py`.
 
+To confirm a removed card holds only ciphertext, use `tools/verify_sd_encryption.py`. It plants a canary file through the vault, then scans the removed card for it. See [Verify the card is encrypted](docs/VALIDATION.md#verify-the-card-is-encrypted).
+
 See [validation results](docs/VALIDATION.md) and the [remaining hardware checks](docs/HARDWARE_VALIDATION.md).
 
 ## 📚 Documentation
@@ -188,6 +202,7 @@ esp32-s3-encrypted-drive/
 ├── desktop/                       # Python CLI + GUI + protocol
 ├── tests/                         # Python + native (ASan/UBSan) regressions
 ├── tools/build_wsl.sh             # Reproducible isolated target build
+├── tools/verify_sd_encryption.py  # Check a removed card holds only ciphertext
 ├── docs/                          # Threat model, protocol, validation, etc.
 │   └── archive/                   # Original design spec (historical)
 ├── Logs/CHANGELOG.md              # Release history
