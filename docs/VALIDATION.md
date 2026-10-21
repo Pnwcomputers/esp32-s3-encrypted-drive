@@ -8,7 +8,7 @@
   (desktop CLI robustness and download id-binding), L-4 (CDC RX backpressure) and S-1
   (NVS erase-retry on first boot). M-1 (default Wi-Fi PSK) addressed as a documentation
   warning. The fixed firmware rebuilds cleanly and the full host suite re-passes.
-- **ESP32-S3 target build and link** with ESP-IDF **5.5.5**, GCC **14.2.0** (`esp-14.2.0_20260121`), regenerated configuration and exact dependency pins. The latest application binary is **1,396,288 bytes** (with PSRAM enabled), leaving 67% of the 4 MiB application partition free. The final build log contains no compiler warnings or errors.
+- **ESP32-S3 target build and link** with ESP-IDF **5.5.5**, GCC **14.2.0** (`esp-14.2.0_20260121`), regenerated configuration and exact dependency pins. The v1.0.0 application image is **1,525,968 bytes** (with PSRAM enabled), leaving about 64% of the 4 MiB application partition free. The final build log contains no compiler warnings or errors.
 - Resolved components: esp_lvgl_port 2.9.0, esp_tinyusb 2.4.0, led_strip 3.1.0~1, TinyUSB 0.21.0~2, LVGL 9.6.0~1. `firmware/dependencies.lock` records the full resolution.
 - Build configuration: ESP32-S3, 16 MB flash, custom partition table, FAT long filenames, one USB CDC interface with 1024-byte RX/TX buffers plus USB MSC with a 4096-byte transfer buffer. Secure Boot and flash encryption are not enabled.
 - **17 Python regressions**, run under Windows and Linux: framing/CRC/stream recovery, complete chunks and maximum catalogs, malformed dimensions, empty/exact-block/multiblock file transfers, partial/stalled serial writes, ambiguous port detection, truncated downloads, destination/temporary-file preservation, missing commit acknowledgements, invalid filenames, 14-byte filename and hex-ID downloads.

@@ -36,7 +36,7 @@ the security limits in the README and `docs/THREAT_MODEL.md`.
   subtitle (the Wi-Fi portal stays up while unlocked, so the device is offline but
   not air-gapped).
 - Replaced template placeholders with project content: `docs/COMPATIBILITY.md`
-  (renamed from the misspelled `COMPATABILITY.md`), `docs/TROUBLESHOOTING.md`, the
+  (renamed to fix a misspelled filename), `docs/TROUBLESHOOTING.md`, the
   bug report and hardware issue templates, and the code-of-conduct contact.
 - Added `.github/SECURITY.md` and pointed the issue-template security link at it.
 - Removed the unrelated "workstation deployment" issue template (left over from another

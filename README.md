@@ -10,6 +10,7 @@
 ![GitHub issues](https://img.shields.io/github/issues/Pnwcomputers/esp32-s3-encrypted-drive)
 ![Maintenance](https://img.shields.io/badge/Maintained-Yes-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+![Release](https://img.shields.io/github/v/release/Pnwcomputers/esp32-s3-encrypted-drive)
 
 ### **A microSD vault that only unlocks over its own privately hosted Wi-Fi; then appears as a normal encrypted USB drive**
 
