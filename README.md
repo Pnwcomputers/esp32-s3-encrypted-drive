@@ -16,11 +16,32 @@
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Release](https://img.shields.io/github/v/release/Pnwcomputers/esp32-s3-encrypted-drive)
 
-### **A microSD vault that only unlocks over its own privately hosted Wi-Fi; then appears as a normal encrypted USB drive**
+### **A ~$25 encrypted USB drive you build yourself: an ESP32-S3 stick plus any microSD card, unlocked from your phone**
+
+Hardware-encrypted flash drives typically cost **$150–$250 for just 64 GB**. This project does the same basic job with about **$25 of parts**: a ~$13 ESP32-S3 USB stick and an ordinary microSD card. Need more space? Swap in a bigger card. The firmware is open source (MIT), so you can read exactly how your data is protected.
 
 Development firmware for the [**Waveshare ESP32-S3-LCD-1.47**](https://a.co/d/0b47s5Qs) (specifically the USB-A thumb-drive form factor) that turns a plain microSD card into an encrypted vault. The card holds only AES-256-GCM ciphertext. The device hosts its own Wi-Fi access point and web portal; after you unlock there, the ESP32 exposes the decrypted volume to the host computer as a real USB drive, decrypting and encrypting every block on the fly. No router, no internet, no buttons, no touch input.
 
 > ⚠️ **This is a development build for disposable test data.** The ESP-IDF 5.5.5 target build is clean, the host regression suite passes, and the encrypted USB drive has been verified creating, mounting (FAT32), reading and writing on real Windows. Device-bound keys, authenticated transport, Secure Boot/flash encryption and an independent security review are **not** done; see [Security Model & Limits](#️-security-model--limits).
+
+---
+
+## 💡 Why This Exists
+
+Commercial encrypted USB drives work well, but they're expensive, their capacity is fixed when you buy them, and their firmware is closed. The goal here is an **inexpensive, open alternative** made from parts anyone can buy.
+
+| | **This project** | Typical hardware-encrypted flash drive |
+|---|---|---|
+| **Cost (64 GB)** | **~$25** (board ~$13 + microSD card) | ~$150–$250 |
+| **Bigger capacity** | Buy a bigger microSD card | Buy a new, pricier drive |
+| **Encryption** | AES-256-GCM, done on the ESP32 | AES-256 (usually XTS), done in the drive |
+| **Unlock** | Phone/browser over the device's own Wi-Fi | Physical keypad on the drive |
+| **Firmware** | Open source (MIT) and auditable | Closed |
+| **Certification & tamper resistance** | None yet | Often FIPS 140-2/140-3 validated, epoxy-sealed, brute-force wipe |
+
+<sub>Typical 64 GB street prices as of Oct 2026 for drives such as the Apricorn Aegis Secure Key 3NX, Kingston IronKey Keypad 200 and iStorage datAshur PRO2; prices vary by retailer. Board price from Waveshare's store.</sub>
+
+**Be honest about the trade-off:** commercial drives carry certifications, physical tamper protection and years of review. This project doesn't yet. It's great for learning, tinkering and low-stakes privacy; for anything that truly matters, wait for the roadmap's security items (device-bound keys, persistent brute-force limits, Secure Boot) and an independent review.
 
 ---
 

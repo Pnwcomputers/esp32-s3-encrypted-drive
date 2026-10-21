@@ -8,6 +8,10 @@ Dated sections before 1.0.0 record development history before the first release.
 
 ## [Unreleased]
 
+### Documentation
+- README: lead with the project's goal, a low-cost (~$25) alternative to $150+
+  encrypted flash drives, and add a "Why This Exists" cost/trade-off comparison.
+
 ## [1.0.0] - 2026-10-21
 
 First tagged release. Still a **development build for disposable test data**; see
