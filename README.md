@@ -14,7 +14,7 @@
 
 ### **A microSD vault that only unlocks over its own privately hosted Wi-Fi; then appears as a normal encrypted USB drive**
 
-Development firmware for the **Waveshare ESP32-S3-LCD-1.47** (USB-A thumb-drive form factor) that turns a plain microSD card into an encrypted vault. The card holds only AES-256-GCM ciphertext. The device hosts its own Wi-Fi access point and web portal; after you unlock there, the ESP32 exposes the decrypted volume to the host computer as a real USB drive, decrypting and encrypting every block on the fly. No router, no internet, no buttons, no touch input.
+Development firmware for the [**Waveshare ESP32-S3-LCD-1.47**](https://a.co/d/0b47s5Qs) (specifically the USB-A thumb-drive form factor) that turns a plain microSD card into an encrypted vault. The card holds only AES-256-GCM ciphertext. The device hosts its own Wi-Fi access point and web portal; after you unlock there, the ESP32 exposes the decrypted volume to the host computer as a real USB drive, decrypting and encrypting every block on the fly. No router, no internet, no buttons, no touch input.
 
 > ⚠️ **This is a development build for disposable test data.** The ESP-IDF 5.5.5 target build is clean, the host regression suite passes, and the encrypted USB drive has been verified creating, mounting (FAT32), reading and writing on real Windows. Device-bound keys, authenticated transport, Secure Boot/flash encryption and an independent security review are **not** done; see [Security Model & Limits](#️-security-model--limits).
 
